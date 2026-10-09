@@ -694,9 +694,7 @@ export default function Game() {
 
       </section>
 
-      /*
-       * MARCADOR
-       */
+
       <section className="scoreboard">
 
         <div className="score-player">
@@ -757,9 +755,6 @@ export default function Game() {
 
       </section>
 
-      /*
-       * JUGADORES
-       */
       <section className="versus-card">
 
         <PlayerBox
@@ -784,9 +779,6 @@ export default function Game() {
 
       </section>
 
-      /*
-       * SELECCIÓN DE LUCHADOR
-       */
       {choosing &&
         !room?.mySecret && (
           <section className="game-card selection-card">
@@ -855,9 +847,6 @@ export default function Game() {
           </section>
         )}
 
-      /*
-       * ESPERANDO AL SEGUNDO JUGADOR
-       */
       {choosing &&
         room?.mySecret && (
           <section className="waiting-box">
@@ -875,9 +864,6 @@ export default function Game() {
           </section>
         )}
 
-      /*
-       * PARTIDA EN CURSO
-       */
       {!choosing &&
         !finished && (
           <section className="game-card">
@@ -938,9 +924,7 @@ export default function Game() {
               </div>
             )}
 
-            /*
-             * INTENTOS DE AMBOS JUGADORES
-             */
+      
             <div className="players-attempts">
 
               {[1, 2].map(
@@ -998,9 +982,7 @@ export default function Game() {
 
                       <div className="player-attempts-list">
 
-                        /*
-                         * ENCABEZADOS
-                         */
+                       
                         <div className="guess-grid guess-header">
 
                           <div className="header-cell wrestler-header">
@@ -1020,9 +1002,6 @@ export default function Game() {
 
                         </div>
 
-                        /*
-                         * INTENTOS
-                         */
                         {playerGuesses.map(
                           (row) => (
 
@@ -1090,9 +1069,7 @@ export default function Game() {
           </section>
         )}
 
-      /*
-       * PARTIDA TERMINADA
-       */
+    
       {finished && (
         <section className="winner-card">
 
@@ -1118,9 +1095,7 @@ export default function Game() {
             </strong>
           </p>
 
-          /*
-           * MARCADOR FINAL
-           */
+        
           <div className="final-score">
 
             <div>
@@ -1165,9 +1140,7 @@ export default function Game() {
 
           </div>
 
-          /*
-           * SECRETOS REVELADOS
-           */
+         
           <div className="final-secrets">
 
             <SecretCard
@@ -1184,9 +1157,7 @@ export default function Game() {
 
           </div>
 
-          /*
-           * REVANCHA
-           */
+         
           <button
             className="primary rematch-button"
             onClick={rematch}
@@ -1215,9 +1186,7 @@ export default function Game() {
   );
 }
 
-/*
- * IMAGEN SEGURA
- */
+
 function SafeImage({
   src,
   fallback,
