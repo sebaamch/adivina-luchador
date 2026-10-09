@@ -1198,6 +1198,31 @@ footer {
 }
 
 @media (max-width: 700px) {
+    .scoreboard {
+  grid-template-columns: 1fr 80px 1fr;
+  gap: 8px;
+  padding: 12px 8px;
+}
+
+.score-player span {
+  font-size: 11px;
+}
+
+.score-player strong {
+  font-size: 30px;
+}
+
+.score-center {
+  padding: 6px;
+}
+
+.score-center strong {
+  font-size: 16px;
+}
+
+.final-score {
+  grid-template-columns: 1fr 35px 1fr;
+}
 
   .page {
     padding: 22px 10px 35px;
@@ -1265,4 +1290,104 @@ footer {
     font-size: 10px;
   }
 
+}
+.scoreboard {
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  padding: 14px 20px;
+  border: 1px solid #1f587d;
+  border-radius: 18px;
+  background: rgba(7, 27, 46, .94);
+  display: grid;
+  grid-template-columns: 1fr 140px 1fr;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  box-shadow: 0 15px 40px rgba(0,0,0,.2);
+}
+
+.score-player {
+  display: grid;
+  gap: 3px;
+}
+
+.score-player span {
+  color: #73e5ff;
+  font-weight: 900;
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.score-player strong {
+  font-size: 38px;
+  line-height: 1;
+  color: #fff;
+}
+
+.score-player small {
+  color: #7892a8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.score-center {
+  border-left: 1px solid #1f587d;
+  border-right: 1px solid #1f587d;
+  display: grid;
+  gap: 2px;
+  padding: 6px 12px;
+}
+
+.score-center span {
+  color: #7892a8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.score-center strong {
+  color: #ffcc45;
+  font-size: 20px;
+}
+
+.final-score {
+  max-width: 420px;
+  margin: 22px auto;
+  display: grid;
+  grid-template-columns: 1fr 50px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: #0a2032;
+  border: 1px solid #1f587d;
+  border-radius: 15px;
+}
+
+.final-score > div:not(.score-separator) {
+  display: grid;
+  gap: 5px;
+}
+
+.final-score span {
+  color: #73e5ff;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.final-score strong {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.score-separator {
+  color: #ffcc45;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.rematch-button {
+  min-width: 240px;
+  margin-top: 24px;
+  font-size: 16px;
 }

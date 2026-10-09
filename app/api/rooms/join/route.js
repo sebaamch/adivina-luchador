@@ -114,7 +114,12 @@ export async function POST(request) {
                 id: game.id,
                 code: game.code,
                 status: game.status,
-                turn_player: game.turn_player
+                turn_player: game.turn_player,
+                winnerPlayer: game.winner_player,
+                player1Wins: game.player1_wins || 0,
+                player2Wins: game.player2_wins || 0,
+                roundNumber: game.round_number || 1,
+
             },
 
             player: {

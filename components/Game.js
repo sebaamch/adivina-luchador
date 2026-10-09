@@ -8,7 +8,7 @@ const columns = [
   ["gender", "Género"],
   ["debut", "Debut"],
   ["style", "Estilo"],
-  ["worldChampion", "Cantidad de titulo"],
+  ["worldChampion", "Mundial"],
   ["rumble", "Royal Rumble"],
   ["hof", "Hall of Fame"]
 ];
@@ -125,7 +125,9 @@ export default function Game() {
       const j = await r.json();
 
       if (!r.ok) {
-        throw new Error(j.error);
+        throw new Error(
+          j.error || "No se pudo obtener la partida."
+        );
       }
 
       setRoom(j);
@@ -162,30 +164,34 @@ export default function Game() {
       clearInterval(id);
   }, [session]);
 
+  /*
+   * BUSCADOR DE LUCHADORES
+   */
   useEffect(() => {
     if (
       !session ||
-      query.trim().length < 2
+      query.trim().length < 2 ||
+      selected
     ) {
       setOptions([]);
       return;
     }
 
-    const c =
+    const controller =
       new AbortController();
 
-    const t = setTimeout(
+    const timer = setTimeout(
       async () => {
         try {
-          const r =
-            await fetch(
-              `/api/wrestlers?q=${encodeURIComponent(
-                query.trim()
-              )}`,
-              {
-                signal: c.signal
-              }
-            );
+          const r = await fetch(
+            `/api/wrestlers?q=${encodeURIComponent(
+              query.trim()
+            )}`,
+            {
+              signal:
+                controller.signal
+            }
+          );
 
           const j =
             await r.json();
@@ -193,17 +199,27 @@ export default function Game() {
           setOptions(
             j.wrestlers || []
           );
-        } catch {}
+        } catch {
+          // Ignoramos errores de abort
+          // o búsqueda cancelada.
+        }
       },
       180
     );
 
     return () => {
-      clearTimeout(t);
-      c.abort();
+      clearTimeout(timer);
+      controller.abort();
     };
-  }, [query, session]);
+  }, [
+    query,
+    session,
+    selected
+  ]);
 
+  /*
+   * CREAR PARTIDA
+   */
   async function createRoom() {
     if (
       playerName.trim().length < 2
@@ -217,6 +233,7 @@ export default function Game() {
 
     setLoading(true);
     setError("");
+    setMessage("");
 
     try {
       const r =
@@ -241,7 +258,7 @@ export default function Game() {
       if (!r.ok) {
         throw new Error(
           j.error ||
-            "No se pudo crear la partida"
+            "No se pudo crear la partida."
         );
       }
 
@@ -272,6 +289,9 @@ export default function Game() {
     }
   }
 
+  /*
+   * UNIRSE A PARTIDA
+   */
   async function joinRoom() {
     if (
       playerName.trim().length < 2
@@ -295,6 +315,7 @@ export default function Game() {
 
     setLoading(true);
     setError("");
+    setMessage("");
 
     try {
       const r =
@@ -323,7 +344,7 @@ export default function Game() {
       if (!r.ok) {
         throw new Error(
           j.error ||
-            "No se pudo unir a la partida"
+            "No se pudo unir a la partida."
         );
       }
 
@@ -354,10 +375,18 @@ export default function Game() {
     }
   }
 
+  /*
+   * ACCIONES DE PARTIDA
+   *
+   * select = seleccionar secreto
+   * guess  = realizar intento
+   */
   async function sendAction(
     action,
     wrestlerId
   ) {
+    if (!session) return;
+
     setLoading(true);
     setError("");
     setMessage("");
@@ -384,7 +413,10 @@ export default function Game() {
         await r.json();
 
       if (!r.ok) {
-        throw new Error(j.error);
+        throw new Error(
+          j.error ||
+            "No se pudo ejecutar la acción."
+        );
       }
 
       setSelected(null);
@@ -415,6 +447,64 @@ export default function Game() {
     }
   }
 
+  /*
+   * REVANCHA
+   *
+   * Se mantiene fuera de los useEffect.
+   */
+  async function rematch() {
+    if (!session) return;
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const r =
+        await fetch(
+          `/api/rooms/${session.code}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+            body: JSON.stringify({
+              token: session.token,
+              action: "rematch"
+            })
+          }
+        );
+
+      const j =
+        await r.json();
+
+      if (!r.ok) {
+        throw new Error(
+          j.error ||
+            "No se pudo iniciar la revancha."
+        );
+      }
+
+      /*
+       * Limpiamos cualquier selección
+       * que hubiera quedado en pantalla.
+       */
+      setSelected(null);
+      setQuery("");
+      setOptions([]);
+      setMessage("");
+
+      await refreshRoom();
+
+    } catch (e) {
+      setError(e.message);
+
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const guesses = useMemo(
     () => room?.guesses ?? [],
     [room]
@@ -431,6 +521,9 @@ export default function Game() {
     setOptions([]);
   }
 
+  /*
+   * PANTALLA INICIAL
+   */
   if (
     !hydrated ||
     !session ||
@@ -498,7 +591,8 @@ export default function Game() {
               value={joinCode}
               onChange={(e) =>
                 setJoinCode(
-                  e.target.value.toUpperCase()
+                  e.target.value
+                    .toUpperCase()
                 )
               }
               maxLength={6}
@@ -548,6 +642,9 @@ export default function Game() {
     );
   }
 
+  /*
+   * PANTALLA DE PARTIDA
+   */
   return (
     <main className="page">
 
@@ -597,6 +694,72 @@ export default function Game() {
 
       </section>
 
+      /*
+       * MARCADOR
+       */
+      <section className="scoreboard">
+
+        <div className="score-player">
+
+          <span>
+            {
+              room?.players?.find(
+                (p) =>
+                  p.playerNo === 1
+              )?.name ||
+              "Jugador 1"
+            }
+          </span>
+
+          <strong>
+            {room?.player1Wins || 0}
+          </strong>
+
+          <small>
+            VICTORIAS
+          </small>
+
+        </div>
+
+        <div className="score-center">
+
+          <span>
+            PARTIDA
+          </span>
+
+          <strong>
+            #{room?.roundNumber || 1}
+          </strong>
+
+        </div>
+
+        <div className="score-player">
+
+          <span>
+            {
+              room?.players?.find(
+                (p) =>
+                  p.playerNo === 2
+              )?.name ||
+              "Jugador 2"
+            }
+          </span>
+
+          <strong>
+            {room?.player2Wins || 0}
+          </strong>
+
+          <small>
+            VICTORIAS
+          </small>
+
+        </div>
+
+      </section>
+
+      /*
+       * JUGADORES
+       */
       <section className="versus-card">
 
         <PlayerBox
@@ -621,6 +784,9 @@ export default function Game() {
 
       </section>
 
+      /*
+       * SELECCIÓN DE LUCHADOR
+       */
       {choosing &&
         !room?.mySecret && (
           <section className="game-card selection-card">
@@ -689,6 +855,9 @@ export default function Game() {
           </section>
         )}
 
+      /*
+       * ESPERANDO AL SEGUNDO JUGADOR
+       */
       {choosing &&
         room?.mySecret && (
           <section className="waiting-box">
@@ -706,6 +875,9 @@ export default function Game() {
           </section>
         )}
 
+      /*
+       * PARTIDA EN CURSO
+       */
       {!choosing &&
         !finished && (
           <section className="game-card">
@@ -766,10 +938,9 @@ export default function Game() {
               </div>
             )}
 
-            {/* ==========================================
-                INTENTOS DE LOS DOS JUGADORES
-               ========================================== */}
-
+            /*
+             * INTENTOS DE AMBOS JUGADORES
+             */
             <div className="players-attempts">
 
               {[1, 2].map(
@@ -804,8 +975,6 @@ export default function Game() {
                       key={playerNo}
                     >
 
-                      {/* CABECERA DEL JUGADOR */}
-
                       <div className="player-attempts-header">
 
                         <div>
@@ -829,10 +998,9 @@ export default function Game() {
 
                       <div className="player-attempts-list">
 
-                        {/* ==================================
-                            ENCABEZADOS DE CATEGORÍAS
-                           ================================== */}
-
+                        /*
+                         * ENCABEZADOS
+                         */
                         <div className="guess-grid guess-header">
 
                           <div className="header-cell wrestler-header">
@@ -852,10 +1020,9 @@ export default function Game() {
 
                         </div>
 
-                        {/* ==================================
-                            INTENTOS
-                           ================================== */}
-
+                        /*
+                         * INTENTOS
+                         */
                         {playerGuesses.map(
                           (row) => (
 
@@ -863,8 +1030,6 @@ export default function Game() {
                               className="guess-grid guess-row"
                               key={row.id}
                             >
-
-                              {/* LUCHADOR */}
 
                               <div className="name-cell">
 
@@ -883,8 +1048,6 @@ export default function Game() {
                                 </span>
 
                               </div>
-
-                              {/* CATEGORÍAS */}
 
                               {columns.map(
                                 ([key]) => (
@@ -927,8 +1090,10 @@ export default function Game() {
           </section>
         )}
 
+      /*
+       * PARTIDA TERMINADA
+       */
       {finished && (
-
         <section className="winner-card">
 
           <div className="trophy">
@@ -941,25 +1106,73 @@ export default function Game() {
 
           <p>
             Ganó{" "}
-
-            {room.players?.find(
-              (p) =>
-                p.playerNo ===
-                room.winnerPlayer
-            )?.name ||
-
-              `Jugador ${room.winnerPlayer}`}
-            .
+            <strong>
+              {
+                room.players?.find(
+                  (p) =>
+                    p.playerNo ===
+                    room.winnerPlayer
+                )?.name ||
+                `Jugador ${room.winnerPlayer}`
+              }
+            </strong>
           </p>
 
+          /*
+           * MARCADOR FINAL
+           */
+          <div className="final-score">
+
+            <div>
+
+              <span>
+                {
+                  room.players?.find(
+                    (p) =>
+                      p.playerNo === 1
+                  )?.name ||
+                  "Jugador 1"
+                }
+              </span>
+
+              <strong>
+                {room.player1Wins || 0}
+              </strong>
+
+            </div>
+
+            <div className="score-separator">
+              -
+            </div>
+
+            <div>
+
+              <span>
+                {
+                  room.players?.find(
+                    (p) =>
+                      p.playerNo === 2
+                  )?.name ||
+                  "Jugador 2"
+                }
+              </span>
+
+              <strong>
+                {room.player2Wins || 0}
+              </strong>
+
+            </div>
+
+          </div>
+
+          /*
+           * SECRETOS REVELADOS
+           */
           <div className="final-secrets">
 
             <SecretCard
               title={me?.name}
-              wrestler={
-                room?.mySecret
-              }
-              img={img}
+              wrestler={room?.mySecret}
             />
 
             <SecretCard
@@ -967,13 +1180,24 @@ export default function Game() {
               wrestler={
                 room?.opponentSecret
               }
-              img={img}
             />
 
           </div>
 
-        </section>
+          /*
+           * REVANCHA
+           */
+          <button
+            className="primary rematch-button"
+            onClick={rematch}
+            disabled={loading}
+          >
+            {loading
+              ? "INICIANDO..."
+              : "🔄 VOLVER A JUGAR"}
+          </button>
 
+        </section>
       )}
 
       {error && (
@@ -991,6 +1215,9 @@ export default function Game() {
   );
 }
 
+/*
+ * IMAGEN SEGURA
+ */
 function SafeImage({
   src,
   fallback,
@@ -1003,10 +1230,11 @@ function SafeImage({
     );
 
   useEffect(
-    () =>
+    () => {
       setUrl(
         src || fallback
-      ),
+      );
+    },
     [src, fallback]
   );
 
@@ -1022,6 +1250,9 @@ function SafeImage({
   );
 }
 
+/*
+ * CAJA DE JUGADOR
+ */
 function PlayerBox({
   player,
   secret,
@@ -1093,10 +1324,12 @@ function PlayerBox({
   );
 }
 
+/*
+ * CARTA DEL LUCHADOR SECRETO
+ */
 function SecretCard({
   title,
-  wrestler,
-  img
+  wrestler
 }) {
   return (
     <div className="secret-card">
@@ -1137,13 +1370,15 @@ function SecretCard({
   );
 }
 
+/*
+ * BUSCADOR DE LUCHADORES
+ */
 function GuessSearch({
   query,
   setQuery,
   options,
   choose,
   disabled,
-  img,
   selected
 }) {
   return (
@@ -1162,10 +1397,6 @@ function GuessSearch({
           autoComplete="off"
           disabled={disabled}
         />
-
-        {/* Las sugerencias solo aparecen
-            cuando todavía no se ha seleccionado
-            un luchador */}
 
         {!selected &&
           options.length > 0 && (
@@ -1208,7 +1439,6 @@ function GuessSearch({
               )}
 
             </div>
-
           )}
 
       </div>
