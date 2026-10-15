@@ -7,9 +7,9 @@ const columns = [
   ["promotion", "Promoción"],
   ["nationality", "País"],
   ["gender", "Género"],
-  ["weight_kg", "Peso"],
-  ["height_cm", "Tamaño"],
-  ["worldChampion", "Mundial"],
+  ["weight", "Peso"],
+  ["height", "Tamaño"],
+  ["worldChampion", "Campeonatos"],
   ["rumble", "Royal Rumble"],
   ["hof", "Hall of Fame"]
 ];
