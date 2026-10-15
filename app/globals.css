@@ -1391,3 +1391,63 @@ footer {
   margin-top: 24px;
   font-size: 16px;
 }
+
+
+/* Corrección del scroll de la página y del buscador */
+html,
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.page {
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
+}
+
+.game-card {
+  overflow: visible;
+}
+
+.input-wrap {
+  min-width: 0;
+}
+
+/* Permite recorrer las sugerencias de luchadores */
+.suggestions {
+  max-height: min(50vh, 360px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Revelación secuencial de las pistas de la grilla */
+.reveal-cell {
+  opacity: 0;
+  animation: revealCell 420ms ease-out forwards;
+}
+
+@keyframes revealCell {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
+    filter: brightness(1.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-cell {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

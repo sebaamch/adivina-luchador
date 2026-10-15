@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -6,24 +7,34 @@ const columns = [
   ["promotion", "Promoción"],
   ["nationality", "País"],
   ["gender", "Género"],
-  ["debut", "Debut"],
-  ["style", "Estilo"],
+  ["weight", "Peso"],
+  ["height", "Tamaño"],
   ["worldChampion", "Mundial"],
   ["rumble", "Royal Rumble"],
   ["hof", "Hall of Fame"]
 ];
 
-function StatusCell({ item }) {
+function StatusCell({ item, revealDelay = 0 }) {
+  const revealStyle = {
+    animationDelay: `${revealDelay}ms`
+  };
+
   if (!item) {
     return (
-      <div className="cell empty">
+      <div
+        className="cell empty reveal-cell"
+        style={revealStyle}
+      >
         —
       </div>
     );
   }
 
   return (
-    <div className={`cell ${item.status}`}>
+    <div
+      className={`cell ${item.status} reveal-cell`}
+      style={revealStyle}
+    >
       <span>{item.value}</span>
 
       <b>
@@ -449,8 +460,6 @@ export default function Game() {
 
   /*
    * REVANCHA
-   *
-   * Se mantiene fuera de los useEffect.
    */
   async function rematch() {
     if (!session) return;
@@ -486,10 +495,6 @@ export default function Game() {
         );
       }
 
-      /*
-       * Limpiamos cualquier selección
-       * que hubiera quedado en pantalla.
-       */
       setSelected(null);
       setQuery("");
       setOptions([]);
@@ -567,7 +572,7 @@ export default function Game() {
                 )
               )
             }
-            placeholder="Ej: Seba"
+            placeholder="Agrega tu Nombre"
             maxLength={24}
           />
 
@@ -693,7 +698,6 @@ export default function Game() {
         </div>
 
       </section>
-
 
       <section className="scoreboard">
 
@@ -924,7 +928,6 @@ export default function Game() {
               </div>
             )}
 
-      
             <div className="players-attempts">
 
               {[1, 2].map(
@@ -982,7 +985,6 @@ export default function Game() {
 
                       <div className="player-attempts-list">
 
-                       
                         <div className="guess-grid guess-header">
 
                           <div className="header-cell wrestler-header">
@@ -1029,7 +1031,7 @@ export default function Game() {
                               </div>
 
                               {columns.map(
-                                ([key]) => (
+                                ([key], index) => (
 
                                   <StatusCell
                                     item={
@@ -1038,6 +1040,7 @@ export default function Game() {
                                       ]
                                     }
                                     key={key}
+                                    revealDelay={index * 130}
                                   />
 
                                 )
@@ -1069,7 +1072,6 @@ export default function Game() {
           </section>
         )}
 
-    
       {finished && (
         <section className="winner-card">
 
@@ -1095,7 +1097,6 @@ export default function Game() {
             </strong>
           </p>
 
-        
           <div className="final-score">
 
             <div>
@@ -1140,7 +1141,6 @@ export default function Game() {
 
           </div>
 
-         
           <div className="final-secrets">
 
             <SecretCard
@@ -1157,7 +1157,6 @@ export default function Game() {
 
           </div>
 
-         
           <button
             className="primary rematch-button"
             onClick={rematch}
@@ -1186,7 +1185,9 @@ export default function Game() {
   );
 }
 
-
+/*
+ * IMAGEN SEGURA
+ */
 function SafeImage({
   src,
   fallback,
