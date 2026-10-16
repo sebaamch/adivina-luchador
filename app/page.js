@@ -1,5 +1,37 @@
-import Game from "@/components/Game";
+import Link from "next/link";
+
+export const metadata = {
+  title: "Adivina el Luchador",
+  description: "Elige tu modo de juego: Versus clásico o Bomba de tiempo."
+};
 
 export default function Home() {
-  return <Game />;
+  return (
+    <main className="page game-select-page">
+      <section className="hero game-select-hero">
+        <div className="eyebrow">WRESTLING • GAME CENTER</div>
+        <h1>ADIVINA EL LUCHADOR</h1>
+        <p>Elige cómo quieres competir.</p>
+      </section>
+
+      <section className="game-mode-grid" aria-label="Modos de juego">
+        <Link href="/adivina-el-luchador" className="game-mode-card classic-mode-card">
+          <div className="game-mode-icon" aria-hidden="true">VS</div>
+          <div className="game-mode-tag">MODO ORIGINAL</div>
+          <h2>Versus clásico</h2>
+          <p>Elige un luchador secreto, descubre el de tu rival y gana por deducción.</p>
+          <span className="game-mode-cta">JUGAR VERSUS <span aria-hidden="true">→</span></span>
+        </Link>
+
+        <Link href="/bomba-de-tiempo" className="game-mode-card hot-mode-card">
+          <div className="game-mode-icon" aria-hidden="true">60s</div>
+          <div className="game-mode-tag">NUEVO MODO</div>
+          <h2>Bomba de tiempo</h2>
+          <p>Turnos alternados, letras nuevas y 60 segundos para sumar más puntos que tu rival.</p>
+          <span className="game-mode-cta">JUGAR Bomba de tiempo <span aria-hidden="true">→</span></span>
+        </Link>
+      </section>
+      <p className="game-select-footer">Dos modos de juego. Una sola arena.</p>
+    </main>
+  );
 }

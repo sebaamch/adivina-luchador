@@ -641,6 +641,8 @@ export default function Game() {
             </div>
           )}
 
+          <a className="hot-back-link" href="/">Volver a seleccionar juego</a>
+
         </section>
 
       </main>
@@ -690,9 +692,10 @@ export default function Game() {
               setError("");
               setQuery("");
               setSelected(null);
+              window.location.href = "/";
             }}
           >
-            VOLVER AL INICIO
+            VOLVER AL MENÚ DE JUEGOS
           </button>
 
         </div>
