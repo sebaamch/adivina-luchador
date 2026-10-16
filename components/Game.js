@@ -269,7 +269,7 @@ export default function Game() {
       if (!r.ok) {
         throw new Error(
           j.error ||
-            "No se pudo crear la partida."
+          "No se pudo crear la partida."
         );
       }
 
@@ -355,7 +355,7 @@ export default function Game() {
       if (!r.ok) {
         throw new Error(
           j.error ||
-            "No se pudo unir a la partida."
+          "No se pudo unir a la partida."
         );
       }
 
@@ -426,7 +426,7 @@ export default function Game() {
       if (!r.ok) {
         throw new Error(
           j.error ||
-            "No se pudo ejecutar la acción."
+          "No se pudo ejecutar la acción."
         );
       }
 
@@ -437,14 +437,12 @@ export default function Game() {
       if (action === "guess") {
         setMessage(
           j.won
-            ? `🎉 ¡${
-                me?.name ||
-                `Jugador ${session.playerNo}`
-              } ganó!`
-            : `Turno enviado. Ahora juega ${
-                opponent?.name ||
-                "el rival"
-              }.`
+            ? `🎉 ¡${me?.name ||
+            `Jugador ${session.playerNo}`
+            } ganó!`
+            : `Turno enviado. Ahora juega ${opponent?.name ||
+            "el rival"
+            }.`
         );
       }
 
@@ -491,7 +489,7 @@ export default function Game() {
       if (!r.ok) {
         throw new Error(
           j.error ||
-            "No se pudo iniciar la revancha."
+          "No se pudo iniciar la revancha."
         );
       }
 
@@ -780,7 +778,7 @@ export default function Game() {
           active={Boolean(
             opponent &&
             room?.turnPlayer !==
-              session?.playerNo
+            session?.playerNo
           )}
         />
 
@@ -829,15 +827,50 @@ export default function Game() {
             </button>
 
             {selected && (
-              <div className="selected-preview">
+              <div
+                className="selected-preview"
+                style={{ position: "relative" }}
+              >
+                <button
+                  type="button"
+                  aria-label="Quitar luchador seleccionado"
+                  title="Quitar selección"
+                  disabled={loading}
+                  onClick={() => {
+                    setSelected(null);
+                    setQuery("");
+                    setOptions([]);
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: "8px",
+                    right: "8px",
+                    width: "30px",
+                    height: "30px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "none",
+                    borderRadius: "50%",
+                    background: "#dc2626",
+                    color: "#ffffff",
+                    fontSize: "20px",
+                    fontWeight: "700",
+                    lineHeight: 1,
+                    cursor: loading ? "not-allowed" : "pointer",
+                    opacity: loading ? 0.5 : 1,
+                    zIndex: 1,
+                  }}
+                >
+                  ×
+                </button>
 
                 <img
                   src={img(selected)}
-                  alt=""
+                  alt={selected.name}
                 />
 
                 <div>
-
                   <strong>
                     {selected.name}
                   </strong>
@@ -845,12 +878,9 @@ export default function Game() {
                   <small>
                     Tu selección secreta
                   </small>
-
                 </div>
-
               </div>
             )}
-
           </section>
         )}
 
@@ -876,21 +906,18 @@ export default function Game() {
           <section className="game-card">
 
             <div
-              className={`turn-banner ${
-                myTurn
+              className={`turn-banner ${myTurn
                   ? "my-turn"
                   : "opponent-turn"
-              }`}
+                }`}
             >
               {myTurn
-                ? `🔥 ES TU TURNO, ${
-                    me?.name ||
-                    "JUGADOR"
-                  }`
-                : `⏳ TURNO DE ${
-                    opponent?.name ||
-                    "TU RIVAL"
-                  }`}
+                ? `🔥 ES TU TURNO, ${me?.name ||
+                "JUGADOR"
+                }`
+                : `⏳ TURNO DE ${opponent?.name ||
+                "TU RIVAL"
+                }`}
             </div>
 
             <GuessSearch
@@ -952,16 +979,15 @@ export default function Game() {
 
                   const isActive =
                     room?.turnPlayer ===
-                      playerNo &&
+                    playerNo &&
                     !finished;
 
                   return (
                     <div
-                      className={`player-attempts ${
-                        isActive
+                      className={`player-attempts ${isActive
                           ? "active-player"
                           : ""
-                      }`}
+                        }`}
                       key={playerNo}
                     >
 
@@ -1039,7 +1065,7 @@ export default function Game() {
                                   <StatusCell
                                     item={
                                       row.result?.[
-                                        key
+                                      key
                                       ]
                                     }
                                     key={key}
@@ -1057,11 +1083,11 @@ export default function Game() {
                         {playerGuesses.length ===
                           0 && (
 
-                          <div className="empty-state">
-                            Aún no hay intentos.
-                          </div>
+                            <div className="empty-state">
+                              Aún no hay intentos.
+                            </div>
 
-                        )}
+                          )}
 
                       </div>
 
@@ -1234,9 +1260,8 @@ function PlayerBox({
 }) {
   return (
     <div
-      className={`player-box ${
-        active ? "active" : ""
-      }`}
+      className={`player-box ${active ? "active" : ""
+        }`}
     >
 
       <span>

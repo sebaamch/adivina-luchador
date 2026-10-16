@@ -202,7 +202,7 @@ export default function HotPotatoGame() {
         </section>
         <section className="home-card hot-home-card">
           <label className="field-label" htmlFor="hot-player-name">TU NOMBRE</label>
-          <input id="hot-player-name" className="name-input" value={playerName} onChange={(e) => setPlayerName(e.target.value.slice(0, 24))} placeholder="Ej. Seba" maxLength={24} />
+          <input id="hot-player-name" className="name-input" value={playerName} onChange={(e) => setPlayerName(e.target.value.slice(0, 24))} placeholder="Escoge tu nombre" maxLength={24} />
           <button className="primary big" onClick={createRoom} disabled={loading}>{loading ? "CREANDO..." : "CREAR SALA"}</button>
           <div className="or">O ÚNETE A UNA SALA</div>
           <div className="join-row">
