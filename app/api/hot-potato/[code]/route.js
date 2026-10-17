@@ -72,40 +72,166 @@ export async function GET(request, { params }) {
   }
 }
 
+
 export async function POST(request, { params }) {
   try {
     const { code } = await params;
     const body = await request.json();
     const token = body?.token;
-    const answer = String(body?.answer || "").trim().slice(0, 80);
-    if (!answer) return NextResponse.json({ error: "Escribe el nombre de un luchador." }, { status: 400 });
+    const action = body?.action;
 
     let game = await readGame(code);
-    if (!game) return NextResponse.json({ error: "Sala no encontrada." }, { status: 404 });
+
+    if (!game) {
+      return NextResponse.json(
+        { error: "Sala no encontrada." },
+        { status: 404 }
+      );
+    }
+
     const playerNo = playerNoForToken(game, token);
-    if (!playerNo) return NextResponse.json({ error: "Token de jugador inválido." }, { status: 401 });
+
+    if (!playerNo) {
+      return NextResponse.json(
+        { error: "Token de jugador inválido." },
+        { status: 401 }
+      );
+    }
+
+    // REVANCHA: reiniciar la partida en la misma sala.
+    if (action === "rematch") {
+      if (game.status !== "finished") {
+        return NextResponse.json(
+          { error: "La partida todavía no ha terminado." },
+          { status: 409 }
+        );
+      }
+
+      if (!game.player2_name) {
+        return NextResponse.json(
+          { error: "Se necesita un segundo jugador para la revancha." },
+          { status: 409 }
+        );
+      }
+
+      const startedAt = new Date();
+      const endsAt = new Date(
+        startedAt.getTime() + 90_000
+      );
+
+      const newLetters = await makeHotPotatoLetters([]);
+
+      const { data: restartedGame, error } =
+        await supabaseAdmin
+          .from("hot_potato_games")
+          .update({
+            status: "playing",
+            turn_player: 1,
+            current_letters: newLetters,
+            started_at: startedAt.toISOString(),
+            ends_at: endsAt.toISOString(),
+            player1_score: 0,
+            player2_score: 0,
+            history: [],
+            used_wrestler_ids: []
+          })
+          .eq("id", game.id)
+          .eq("status", "finished")
+          .select("*")
+          .maybeSingle();
+
+      if (error) throw error;
+
+      if (!restartedGame) {
+        return NextResponse.json(
+          {
+            error: "La revancha ya fue iniciada o la partida cambió. Actualiza la sala."
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "¡Comienza la revancha!",
+        room: publicRoom(restartedGame, playerNo)
+      });
+    }
+
+    const answer = String(body?.answer || "")
+      .trim()
+      .slice(0, 80);
+
+    if (!answer) {
+      return NextResponse.json(
+        { error: "Escribe el nombre de un luchador." },
+        { status: 400 }
+      );
+    }
+
     game = await expireIfNeeded(game);
-    if (game.status !== "playing") return NextResponse.json({ error: game.status === "finished" ? "La partida terminó." : "Esperando al segundo jugador." }, { status: 409 });
-    if (game.turn_player !== playerNo) return NextResponse.json({ error: "No es tu turno." }, { status: 409 });
+
+    if (game.status !== "playing") {
+      return NextResponse.json(
+        {
+          error:
+            game.status === "finished"
+              ? "La partida terminó."
+              : "Esperando al segundo jugador."
+        },
+        { status: 409 }
+      );
+    }
+
+    if (game.turn_player !== playerNo) {
+      return NextResponse.json(
+        { error: "No es tu turno." },
+        { status: 409 }
+      );
+    }
 
     const wrestlers = await getAvailableWrestlers();
     const normalizedAnswer = normalizeWrestlerName(answer);
-    const wrestler = wrestlers.find((w) => normalizeWrestlerName(w.name) === normalizedAnswer) || null;
+
+    const wrestler =
+      wrestlers.find(
+        (w) =>
+          normalizeWrestlerName(w.name) === normalizedAnswer
+      ) || null;
+
     const usedIds = (game.used_wrestler_ids || []).map(String);
-    const alreadyUsed = wrestler ? usedIds.includes(String(wrestler.id)) : false;
-    const lettersMatch = wrestler ? canFormName(wrestler.name, game.current_letters || []) : false;
-    const scoredWrestler = wrestler && !alreadyUsed && lettersMatch ? wrestler : null;
-    const nextUsedIds = scoredWrestler ? [...usedIds, String(scoredWrestler.id)] : usedIds;
+    const alreadyUsed = wrestler
+      ? usedIds.includes(String(wrestler.id))
+      : false;
+
+    const lettersMatch = wrestler
+      ? canFormName(wrestler.name, game.current_letters || [])
+      : false;
+
+    const scoredWrestler =
+      wrestler && !alreadyUsed && lettersMatch
+        ? wrestler
+        : null;
+
+    const nextUsedIds = scoredWrestler
+      ? [...usedIds, String(scoredWrestler.id)]
+      : usedIds;
+
     const nextLetters = await makeHotPotatoLetters(nextUsedIds);
 
-    const { data: result, error: rpcError } = await supabaseAdmin.rpc("submit_hot_potato_turn", {
-      p_code: String(code).toUpperCase(),
-      p_player_no: playerNo,
-      p_wrestler_id: scoredWrestler ? String(scoredWrestler.id) : null,
-      p_answer_name: answer,
-      p_new_letters: nextLetters
-    });
+    const { data: result, error: rpcError } =
+      await supabaseAdmin.rpc("submit_hot_potato_turn", {
+        p_code: String(code).toUpperCase(),
+        p_player_no: playerNo,
+        p_wrestler_id: scoredWrestler
+          ? String(scoredWrestler.id)
+          : null,
+        p_answer_name: answer,
+        p_new_letters: nextLetters
+      });
+
     if (rpcError) throw rpcError;
+
     if (!result?.ok) {
       const errors = {
         not_found: "Sala no encontrada.",
@@ -113,18 +239,48 @@ export async function POST(request, { params }) {
         wrong_turn: "El turno cambió; actualicé la partida.",
         time_expired: "Se acabó el tiempo. La partida terminó."
       };
-      return NextResponse.json({ error: errors[result?.error] || "No se pudo registrar el turno." }, { status: 409 });
+
+      return NextResponse.json(
+        {
+          error:
+            errors[result?.error] ||
+            "No se pudo registrar el turno."
+        },
+        { status: 409 }
+      );
     }
 
     let message;
-    if (result.scored) message = `¡Correcto! ${scoredWrestler.name} suma un punto.`;
-    else if (!wrestler) message = "Ese nombre no existe en la base de datos. El turno pasa al rival.";
-    else if (alreadyUsed) message = "Ese luchador ya fue utilizado. El turno pasa al rival.";
-    else message = "Ese nombre no se puede formar con las letras disponibles. El turno pasa al rival.";
 
-    return NextResponse.json({ success: true, scored: Boolean(result.scored), message, room: result });
+    if (result.scored) {
+      message = `¡Correcto! ${scoredWrestler.name} suma un punto.`;
+    } else if (!wrestler) {
+      message =
+        "Ese nombre no existe en la base de datos. El turno pasa al rival.";
+    } else if (alreadyUsed) {
+      message =
+        "Ese luchador ya fue utilizado. El turno pasa al rival.";
+    } else {
+      message =
+        "Ese nombre no se puede formar con las letras disponibles. El turno pasa al rival.";
+    }
+
+    return NextResponse.json({
+      success: true,
+      scored: Boolean(result.scored),
+      message,
+      room: result
+    });
   } catch (error) {
-    console.error("Error enviando respuesta Bomba de tiempo:", error);
-    return NextResponse.json({ error: error.message || "No se pudo registrar la respuesta." }, { status: 500 });
+    console.error("Error en Bomba de tiempo:", error);
+
+    return NextResponse.json(
+      {
+        error:
+          error.message ||
+          "No se pudo procesar la acción."
+      },
+      { status: 500 }
+    );
   }
 }

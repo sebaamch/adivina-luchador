@@ -182,6 +182,50 @@ export default function HotPotatoGame() {
     setMessage("");
   }
 
+  async function rematch() {
+    if (!session || loading) return;
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+    setAnswer("");
+
+    try {
+      const response = await fetch(
+        `/api/hot-potato/${encodeURIComponent(session.code)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            token: session.token,
+            action: "rematch"
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "No se pudo iniciar la revancha."
+        );
+      }
+
+      setRoom(data.room);
+      await refreshRoom(session);
+    } catch (e) {
+      setError(
+        e.message || "No se pudo iniciar la revancha."
+      );
+      await refreshRoom(session);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+
   function leaveRoom() {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
@@ -198,7 +242,7 @@ export default function HotPotatoGame() {
         <section className="hero">
           <div className="eyebrow">NUEVO MODO VERSUS</div>
           <h1>Bomba de tiempo</h1>
-          <p>60 segundos. Letras nuevas en cada turno. Gana quien nombre más luchadores.</p>
+          <p>90 segundos. Letras nuevas en cada turno. Gana quien nombre más luchadores.</p>
         </section>
         <section className="home-card hot-home-card">
           <label className="field-label" htmlFor="hot-player-name">TU NOMBRE</label>
@@ -246,7 +290,7 @@ export default function HotPotatoGame() {
         <section className="game-card hot-waiting">
           <h2>Comparte el código con tu rival</h2>
           <div className="hot-room-code">{session.code}</div>
-          <p>La partida de 60 segundos comienza cuando se una el segundo jugador.</p>
+          <p>La partida de 90 segundos comienza cuando se una el segundo jugador.</p>
           <button className="secondary" onClick={() => navigator.clipboard?.writeText(session.code)}>COPIAR CÓDIGO</button>
         </section>
       )}
@@ -271,14 +315,42 @@ export default function HotPotatoGame() {
         </section>
       )}
 
+
       {room?.status === "finished" && (
         <section className="winner-card hot-winner-card">
           <div className="eyebrow">FIN DE LA PARTIDA</div>
+
           <h2>{winnerText}</h2>
-          <p>Resultado final: {room.player1Score || 0} - {room.player2Score || 0}</p>
-          <button className="primary" onClick={leaveRoom}>JUGAR OTRA PARTIDA</button>
+
+          <p>
+            Resultado final: {room.player1Score || 0} -{" "}
+            {room.player2Score || 0}
+          </p>
+
+          <button
+            className="primary"
+            onClick={rematch}
+            disabled={loading}
+          >
+            {loading ? "INICIANDO..." : "REVANCHA"}
+          </button>
+
+          <button
+            className="secondary"
+            onClick={leaveRoom}
+            disabled={loading}
+          >
+            VOLVER AL MENÚ
+          </button>
+
+          {error && (
+            <div className="message error" role="alert">
+              {error}
+            </div>
+          )}
         </section>
       )}
+
 
       {room?.history?.length > 0 && (
         <section className="game-card hot-history-card">

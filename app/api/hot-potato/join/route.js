@@ -32,7 +32,7 @@ export async function POST(request) {
     const currentLetters = await makeHotPotatoLetters(game.used_wrestler_ids || []);
     const token = makeToken();
     const startedAt = new Date();
-    const endsAt = new Date(startedAt.getTime() + 60_000);
+    const endsAt = new Date(startedAt.getTime() + 90_000);
 
     // La condición evita que dos personas ocupen simultáneamente el segundo puesto.
     const { data: joined, error: joinError } = await supabaseAdmin

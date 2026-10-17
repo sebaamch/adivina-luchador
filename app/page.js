@@ -18,16 +18,15 @@ export default function Home() {
         <Link href="/adivina-el-luchador" className="game-mode-card classic-mode-card">
           <div className="game-mode-icon" aria-hidden="true">VS</div>
           <div className="game-mode-tag">MODO ORIGINAL</div>
-          <h2>Versus clásico</h2>
+          <h2>Versus</h2>
           <p>Elige un luchador secreto, descubre el de tu rival y gana por deducción.</p>
           <span className="game-mode-cta">JUGAR VERSUS <span aria-hidden="true">→</span></span>
         </Link>
 
         <Link href="/bomba-de-tiempo" className="game-mode-card hot-mode-card">
-          <div className="game-mode-icon" aria-hidden="true">60s</div>
-          <div className="game-mode-tag">NUEVO MODO</div>
+          <div className="game-mode-icon" aria-hidden="true">90s</div>
           <h2>Bomba de tiempo</h2>
-          <p>Turnos alternados, letras nuevas y 60 segundos para sumar más puntos que tu rival.</p>
+          <p>Tienen 90 segundos para ganar.</p>
           <span className="game-mode-cta">JUGAR Bomba de tiempo <span aria-hidden="true">→</span></span>
         </Link>
       </section>
