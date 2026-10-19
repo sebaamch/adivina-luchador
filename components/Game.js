@@ -92,6 +92,9 @@ export default function Game() {
   const [loading, setLoading] =
     useState(false);
 
+  const [screenLoading, setScreenLoading] = 
+    useState(false);
+
   const [error, setError] =
     useState("");
 
@@ -120,40 +123,43 @@ export default function Game() {
     );
 
 
-const refreshRoom = useCallback(async () => {
+  const refreshRoom = useCallback(async () => {
     if (!session) return;
 
     try {
-        const r = await fetch(
-            `/api/rooms/${session.code}?token=${encodeURIComponent(
-                session.token
-            )}`,
-            { cache: "no-store" }
+      const r = await fetch(
+        `/api/rooms/${session.code}?token=${encodeURIComponent(
+          session.token
+        )}`,
+        { cache: "no-store" }
+      );
+
+      const j = await r.json();
+
+      if (!r.ok) {
+        throw new Error(
+          j.error || "No se pudo obtener la partida."
         );
+      }
 
-        const j = await r.json();
-
-        if (!r.ok) {
-            throw new Error(
-                j.error || "No se pudo obtener la partida."
-            );
+      setRoom((current) => {
+        // No volver a renderizar toda la partida
+        // si la respuesta no contiene cambios.
+        if (JSON.stringify(current) === JSON.stringify(j)) {
+          return current;
         }
 
-        setRoom((current) => {
-            // No volver a renderizar toda la partida
-            // si la respuesta no contiene cambios.
-            if (JSON.stringify(current) === JSON.stringify(j)) {
-                return current;
-            }
-
-            return j;
-        });
+        return j;
+      });
+      setScreenLoading(false);
     } catch (e) {
-        if (e.name !== "AbortError") {
-            setError(e.message);
-        }
+      if (e.name !== "AbortError") {
+        setError(e.message);
+        setScreenLoading(false);
+
+      }
     }
-}, [session]);
+  }, [session]);
 
 
   useEffect(() => {
@@ -171,31 +177,31 @@ const refreshRoom = useCallback(async () => {
   }, []);
 
 
-useEffect(() => {
+  useEffect(() => {
     if (!session) return;
 
     let cancelled = false;
     let timeoutId;
 
     async function pollRoom() {
-        if (cancelled) return;
+      if (cancelled) return;
 
-        await refreshRoom();
+      await refreshRoom();
 
-        // Esperar a que termine la consulta antes
-        // de programar la siguiente.
-        if (!cancelled) {
-            timeoutId = setTimeout(pollRoom, 2000);
-        }
+      // Esperar a que termine la consulta antes
+      // de programar la siguiente.
+      if (!cancelled) {
+        timeoutId = setTimeout(pollRoom, 2000);
+      }
     }
 
     pollRoom();
 
     return () => {
-        cancelled = true;
-        clearTimeout(timeoutId);
+      cancelled = true;
+      clearTimeout(timeoutId);
     };
-}, [session, refreshRoom]);
+  }, [session, refreshRoom]);
 
 
   /*
@@ -266,6 +272,7 @@ useEffect(() => {
     }
 
     setLoading(true);
+    setScreenLoading(true);
     setError("");
     setMessage("");
 
@@ -317,6 +324,7 @@ useEffect(() => {
       );
 
       setError(e.message);
+      setScreenLoading(false);
 
     } finally {
       setLoading(false);
@@ -348,6 +356,7 @@ useEffect(() => {
     }
 
     setLoading(true);
+    setScreenLoading(true);
     setError("");
     setMessage("");
 
@@ -401,6 +410,7 @@ useEffect(() => {
         "Error uniéndose a partida:",
         e
       );
+      setScreenLoading(false);
 
       setError(e.message);
 
@@ -486,6 +496,7 @@ useEffect(() => {
     if (!session) return;
 
     setLoading(true);
+    setScreenLoading(true);
     setError("");
     setMessage("");
 
@@ -525,6 +536,7 @@ useEffect(() => {
 
     } catch (e) {
       setError(e.message);
+      setScreenLoading(false);
 
     } finally {
       setLoading(false);
@@ -557,6 +569,7 @@ useEffect(() => {
   ) {
     return (
       <main className="page home-page">
+      {screenLoading && <LoadingScreen />}
 
         <section className="hero">
 
@@ -675,6 +688,7 @@ useEffect(() => {
    */
   return (
     <main className="page">
+    {screenLoading && <LoadingScreen />}
 
       <section className="hero compact">
 
@@ -930,8 +944,8 @@ useEffect(() => {
 
             <div
               className={`turn-banner ${myTurn
-                  ? "my-turn"
-                  : "opponent-turn"
+                ? "my-turn"
+                : "opponent-turn"
                 }`}
             >
               {myTurn
@@ -1008,8 +1022,8 @@ useEffect(() => {
                   return (
                     <div
                       className={`player-attempts ${isActive
-                          ? "active-player"
-                          : ""
+                        ? "active-player"
+                        : ""
                         }`}
                       key={playerNo}
                     >
@@ -1464,6 +1478,32 @@ function GuessSearch({
 
       </div>
 
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div
+      className="game-loading-overlay"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="game-loading-content">
+        <div className="game-loading-spinner" />
+
+        <h2>PREPARANDO LA PARTIDA</h2>
+
+        <p>
+          Estamos buscando a los luchadores...
+        </p>
+
+        <div className="game-loading-dots">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
     </div>
   );
 }
