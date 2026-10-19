@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
+import { useCallback, useEffect, useMemo, useState } from "react";
 const columns = [
   ["promotion", "Promoción"],
   ["nationality", "País"],
@@ -120,32 +119,42 @@ export default function Game() {
         session?.playerNo
     );
 
-  async function refreshRoom() {
+
+const refreshRoom = useCallback(async () => {
     if (!session) return;
 
     try {
-      const r = await fetch(
-        `/api/rooms/${session.code}?token=${encodeURIComponent(
-          session.token
-        )}`,
-        {
-          cache: "no-store"
-        }
-      );
-
-      const j = await r.json();
-
-      if (!r.ok) {
-        throw new Error(
-          j.error || "No se pudo obtener la partida."
+        const r = await fetch(
+            `/api/rooms/${session.code}?token=${encodeURIComponent(
+                session.token
+            )}`,
+            { cache: "no-store" }
         );
-      }
 
-      setRoom(j);
+        const j = await r.json();
+
+        if (!r.ok) {
+            throw new Error(
+                j.error || "No se pudo obtener la partida."
+            );
+        }
+
+        setRoom((current) => {
+            // No volver a renderizar toda la partida
+            // si la respuesta no contiene cambios.
+            if (JSON.stringify(current) === JSON.stringify(j)) {
+                return current;
+            }
+
+            return j;
+        });
     } catch (e) {
-      setError(e.message);
+        if (e.name !== "AbortError") {
+            setError(e.message);
+        }
     }
-  }
+}, [session]);
+
 
   useEffect(() => {
     const s = readSession();
@@ -161,19 +170,33 @@ export default function Game() {
     setHydrated(true);
   }, []);
 
-  useEffect(() => {
+
+useEffect(() => {
     if (!session) return;
 
-    refreshRoom();
+    let cancelled = false;
+    let timeoutId;
 
-    const id = setInterval(
-      refreshRoom,
-      1000
-    );
+    async function pollRoom() {
+        if (cancelled) return;
 
-    return () =>
-      clearInterval(id);
-  }, [session]);
+        await refreshRoom();
+
+        // Esperar a que termine la consulta antes
+        // de programar la siguiente.
+        if (!cancelled) {
+            timeoutId = setTimeout(pollRoom, 2000);
+        }
+    }
+
+    pollRoom();
+
+    return () => {
+        cancelled = true;
+        clearTimeout(timeoutId);
+    };
+}, [session, refreshRoom]);
+
 
   /*
    * BUSCADOR DE LUCHADORES

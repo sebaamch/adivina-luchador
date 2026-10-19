@@ -68,46 +68,20 @@ async function getWrestler(identifier) {
  * Construye el estado público de la partida
  * para el jugador autenticado.
  */
+
 async function roomForPlayer(game, me) {
-    const opponent = game.players?.find(
+    const players = game.players || [];
+
+    const opponent = players.find(
         (p) => p.player_no !== me.player_no
     );
 
     const bothSelected =
-        game.players?.length === 2 &&
-        game.players.every(
-            (p) => Boolean(p.secret_wrestler_id)
-        );
+        players.length === 2 &&
+        players.every((p) => Boolean(p.secret_wrestler_id));
 
-    /**
-     * Luchador secreto propio.
-     */
-    const mySecret = me.secret_wrestler_id
-        ? publicWrestler(
-            await getWrestler(me.secret_wrestler_id)
-        )
-        : null;
-
-    /**
-     * El secreto del rival solamente se entrega
-     * cuando la partida terminó.
-     */
-    let opponentSecret = null;
-
-    if (
-        game.status === "finished" &&
-        opponent?.secret_wrestler_id
-    ) {
-        opponentSecret = publicWrestler(
-            await getWrestler(
-                opponent.secret_wrestler_id
-            )
-        );
-    }
-
-    /**
-     * Obtener las guesses.
-     */
+    // Reunir todos los IDs necesarios para resolver
+    // los intentos y los luchadores secretos en una consulta.
     const {
         data: guessesData,
         error: guessesError
@@ -121,64 +95,106 @@ async function roomForPlayer(game, me) {
             created_at
         `)
         .eq("game_id", game.id)
-        .order("created_at", {
-            ascending: false
-        });
+        .order("created_at", { ascending: false });
 
     if (guessesError) {
         throw guessesError;
     }
 
+    const wrestlerIds = [
+        ...new Set([
+            ...players
+                .map((p) => p.secret_wrestler_id)
+                .filter((id) => id != null),
+
+            ...(guessesData || [])
+                .map((g) => g.wrestler_id)
+                .filter((id) => id != null)
+        ].map(String))
+    ];
+
+    let wrestlers = [];
+
+    if (wrestlerIds.length > 0) {
+        const {
+            data,
+            error
+        } = await supabaseAdmin
+            .from("wrestlers")
+            .select("*")
+            .in("id", wrestlerIds);
+
+        if (error) {
+            throw error;
+        }
+
+        wrestlers = data || [];
+    }
+
+    // Buscar por ID en memoria, sin nuevas consultas.
+    const wrestlerById = new Map(
+        wrestlers.map((w) => [String(w.id), w])
+    );
+
+    const mySecretData = me.secret_wrestler_id
+        ? wrestlerById.get(String(me.secret_wrestler_id))
+        : null;
+
+    const mySecret = mySecretData
+        ? publicWrestler(mySecretData)
+        : null;
+
+    let opponentSecret = null;
+
+    if (
+        game.status === "finished" &&
+        opponent?.secret_wrestler_id
+    ) {
+        const secret = wrestlerById.get(
+            String(opponent.secret_wrestler_id)
+        );
+
+        opponentSecret = secret
+            ? publicWrestler(secret)
+            : null;
+    }
+
+    // Construir el historial sin consultar la BD dentro del bucle.
     const guesses = [];
 
     for (const guess of guessesData || []) {
-        const guessPlayer = game.players?.find(
+        const guessPlayer = players.find(
             (p) => p.id === guess.player_id
         );
 
-        const guessedWrestler =
-            await getWrestler(
-                guess.wrestler_id
-            );
+        const guessedWrestler = wrestlerById.get(
+            String(guess.wrestler_id)
+        );
 
         if (!guessedWrestler || !guessPlayer) {
             continue;
         }
 
-        /**
-         * La persona a la que se está intentando
-         * adivinar es el jugador contrario.
-         */
-        const targetPlayer = game.players?.find(
-            (p) =>
-                p.player_no !==
-                guessPlayer.player_no
+        const targetPlayer = players.find(
+            (p) => p.player_no !== guessPlayer.player_no
         );
 
-        let result = null;
+        const targetWrestler = targetPlayer?.secret_wrestler_id
+            ? wrestlerById.get(
+                String(targetPlayer.secret_wrestler_id)
+            )
+            : null;
 
-        if (targetPlayer?.secret_wrestler_id) {
-            const targetWrestler =
-                await getWrestler(
-                    targetPlayer.secret_wrestler_id
-                );
-
-            if (targetWrestler) {
-                result = compare(
-                    guessedWrestler,
-                    targetWrestler
-                );
-            }
-        }
+        const result = targetWrestler
+            ? compare(guessedWrestler, targetWrestler)
+            : null;
 
         guesses.push({
             id: guess.id,
             playerNo: guessPlayer.player_no,
             name: guessedWrestler.name,
-            image_url:
-                guessedWrestler.image_url ?? null,
-            local_image:
-                guessedWrestler.local_image ?? null,
+            image_url: guessedWrestler.image_url ?? null,
+            local_image: guessedWrestler.local_image ?? null,
             result,
             createdAt: guess.created_at
         });
@@ -187,62 +203,34 @@ async function roomForPlayer(game, me) {
     return {
         code: game.code,
 
-        players: (game.players || []).map(
-            (player) => ({
-                playerNo: player.player_no,
-
-                name:
-                    player.name ||
-                    `Jugador ${player.player_no}`,
-
-                ready: Boolean(
-                    player.secret_wrestler_id
-                )
-            })
-        ),
+        players: players.map((player) => ({
+            playerNo: player.player_no,
+            name: player.name || `Jugador ${player.player_no}`,
+            ready: Boolean(player.secret_wrestler_id)
+        })),
 
         status:
-            bothSelected &&
-            game.status === "waiting"
+            bothSelected && game.status === "waiting"
                 ? "playing"
                 : game.status,
 
         playerNo: me.player_no,
-
-        opponentConnected:
-            Boolean(opponent),
-
+        opponentConnected: Boolean(opponent),
         mySecret,
-
         opponentSecret,
 
         turnPlayer: bothSelected
             ? game.turn_player
             : null,
 
-        winnerPlayer:
-            game.winner_player,
-
-        /**
-         * NUEVO:
-         * Marcador de victorias.
-         */
-        player1Wins:
-            game.player1_wins || 0,
-
-        player2Wins:
-            game.player2_wins || 0,
-
-        /**
-         * NUEVO:
-         * Número de ronda.
-         */
-        roundNumber:
-            game.round_number || 1,
-
+        winnerPlayer: game.winner_player,
+        player1Wins: game.player1_wins || 0,
+        player2Wins: game.player2_wins || 0,
+        roundNumber: game.round_number || 1,
         guesses
     };
 }
+
 
 /**
  * GET /api/rooms/[code]
