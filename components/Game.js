@@ -905,6 +905,7 @@ export default function Game() {
                 <img
                   src={img(selected)}
                   alt={selected.name}
+                  className="wrestler-image"
                 />
 
                 <div>
@@ -1088,6 +1089,8 @@ export default function Game() {
                                     row.local_image ||
                                     "/wrestlers/default.svg"
                                   }
+                                    className="wrestler-image"
+
                                 />
 
                                 <span>
@@ -1258,7 +1261,7 @@ function SafeImage({
   src,
   fallback,
   alt = "",
-  className = ""
+  className ="wrestler-image"
 }) {
   const [url, setUrl] =
     useState(
@@ -1279,6 +1282,7 @@ function SafeImage({
       className={className}
       src={url}
       alt={alt}
+      
       onError={() =>
         setUrl(fallback)
       }
@@ -1316,6 +1320,7 @@ function PlayerBox({
               secret.local_image ||
               "/wrestlers/default.svg"
             }
+            
           />
 
           <strong>
@@ -1385,6 +1390,7 @@ function SecretCard({
               wrestler.local_image ||
               "/wrestlers/default.svg"
             }
+            className="wrestler-image"
           />
 
           <strong>
@@ -1457,6 +1463,7 @@ function GuessSearch({
                         w.local_image ||
                         "/wrestlers/default.svg"
                       }
+                      className="wrestler-image"
                     />
 
                     <span>
