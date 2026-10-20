@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Adivina el Luchador",
-  description: "Elige tu modo de juego: Versus clásico o Bomba de tiempo."
+  title: "ESTO ES LUCHA",
+  description: "Elige tu modo de juego"
 };
 
 export default function Home() {
@@ -17,7 +17,7 @@ export default function Home() {
       <section className="game-mode-grid" aria-label="Modos de juego">
         <Link href="/adivina-el-luchador" className="game-mode-card classic-mode-card">
           <div className="game-mode-icon" aria-hidden="true">VS</div>
-          <div className="game-mode-tag">MODO ORIGINAL</div>
+          <div className="game-mode-tag">Adivina el Luchador</div>
           <h2>Versus</h2>
           <p>Elige un luchador secreto, descubre el de tu rival y gana por deducción.</p>
           <span className="game-mode-cta">JUGAR VERSUS <span aria-hidden="true">→</span></span>

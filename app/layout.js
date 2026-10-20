@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Adivina el Luchador",
-  description: "Juego diario para adivinar luchadores de wrestling."
+  title: "ESTO ES LUCHA",
+  description: "Página por fans para fans"
 };
 
 export default function RootLayout({ children }) {
