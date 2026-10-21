@@ -16,7 +16,7 @@ export async function GET(request) {
 
     const { data, error } = await supabase
       .from("wrestlers")
-      .select("id, name, image_url, local_image")
+      .select("id, name,local_image")
       .eq("eligible", true)
       .ilike("name", `%${q}%`)
       .order("name", { ascending: true })
@@ -34,7 +34,6 @@ export async function GET(request) {
     const wrestlers = (data ?? []).map((w) => ({
       id: w.id,
       name: w.name,
-      image_url: w.image_url ?? null,
       local_image: w.local_image ?? `/wrestlers/${w.id}.svg`,
     }));
 

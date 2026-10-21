@@ -574,18 +574,14 @@ export default function Game() {
         <section className="hero">
 
           <div className="eyebrow">
-            WRESTLING • VERSUS
+              VERSUS
           </div>
 
           <h1>
             ADIVINA EL LUCHADOR
           </h1>
-
-          <p>
-            Dos jugadores. Dos
-            luchadores secretos.
-            Un turno a la vez.
-          </p>
+           
+           <RulesTooltip />
 
         </section>
 
@@ -1514,3 +1510,71 @@ function LoadingScreen() {
     </div>
   );
 }
+
+function RulesTooltip() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rules-tooltip">
+      <button
+        type="button"
+        className="rules-tooltip-trigger"
+        aria-label="Ver reglas del juego"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        onBlur={(e) => {
+          if (!e.currentTarget.parentElement?.contains(e.relatedTarget)) {
+            setOpen(false);
+          }
+        }}
+      >
+        ?
+      </button>
+
+      {open && (
+        <div
+          className="rules-tooltip-content"
+          role="dialog"
+          aria-label="Reglas del juego"
+        >
+          <strong>¿Cómo se juega?</strong>
+
+          <p>
+            <b>1. Elige tu luchador.</b>
+            Cada jugador selecciona en secreto un luchador.
+          </p>
+
+          <p>
+            <b>2. Adivina al rival.</b>
+            En tu turno, busca un luchador e intenta descubrir
+            la elección secreta de tu oponente.
+          </p>
+
+          <p>
+            <b>3. Interpreta las pistas.</b>
+            ✓ Coincide · ≈ Coincide parcialmente · × No coincide.
+          </p>
+
+          <p>
+            <b>4. Respeta los turnos.</b>
+            Si no aciertas, el turno pasa al otro jugador.
+          </p>
+
+          <p>
+            <b>5. Gana la partida.</b>
+            El primero que adivine el luchador secreto rival gana.
+          </p>
+
+          <button
+            type="button"
+            className="rules-tooltip-close"
+            onClick={() => setOpen(false)}
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+

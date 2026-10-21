@@ -451,25 +451,25 @@ export async function POST(
                         )
                 );
 
-            if (bothReady) {
-                const {
-                    error:
-                        gameUpdateError
-                } = await supabaseAdmin
-                    .from("games")
-                    .update({
-                        status: "playing",
-                        turn_player: 1
-                    })
-                    .eq(
-                        "id",
-                        updatedGame.id
-                    );
+if (bothReady) {
+    // Sortear quién comienza la partida.
+    const startingPlayer = Math.random() < 0.5 ? 1 : 2;
 
-                if (gameUpdateError) {
-                    throw gameUpdateError;
-                }
-            }
+    const {
+        error: gameUpdateError
+    } = await supabaseAdmin
+        .from("games")
+        .update({
+            status: "playing",
+            turn_player: startingPlayer
+        })
+        .eq("id", updatedGame.id);
+
+    if (gameUpdateError) {
+        throw gameUpdateError;
+    }
+}
+
 
             return NextResponse.json({
                 success: true,

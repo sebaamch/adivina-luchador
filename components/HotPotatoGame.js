@@ -21,6 +21,71 @@ function formatTime(seconds) {
   return `00:${String(safe).padStart(2, "0")}`;
 }
 
+function RulesTooltip() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rules-tooltip">
+      <button
+        type="button"
+        className="rules-tooltip-trigger"
+        aria-label="Ver reglas de Bomba de tiempo"
+        aria-expanded={open}
+        onClick={() => setOpen((previous) => !previous)}
+      >
+        ?
+      </button>
+
+      {open && (
+        <div
+          className="rules-tooltip-content"
+          role="dialog"
+          aria-label="Reglas de Bomba de tiempo"
+        >
+          <h3>¿Cómo se juega?</h3>
+
+          <p>
+            <strong>1. Forma nombres:</strong> usa las letras
+            disponibles para escribir el nombre de un luchador
+            de la base de datos.
+          </p>
+
+          <p>
+            <strong>2. Responde en tu turno:</strong> ingresa
+            el nombre y pulsa “Responder y pasar”.
+          </p>
+
+          <p>
+            <strong>3. Gana puntos:</strong> cada luchador válido
+            puede puntuar una sola vez durante la partida.
+          </p>
+
+          <p>
+            <strong>4. Cambian las letras:</strong> después de
+            cada respuesta, el turno pasa al otro jugador y
+            las letras cambian.
+          </p>
+
+          <p>
+            <strong>5. Controla el tiempo:</strong> consigue
+            tantos puntos como puedas antes de que termine
+            la partida.
+          </p>
+
+          <button
+            type="button"
+            className="rules-tooltip-close"
+            onClick={() => setOpen(false)}
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function HotPotatoGame() {
   const [hydrated, setHydrated] = useState(false);
   const [session, setSession] = useState(null);
@@ -148,6 +213,11 @@ export default function HotPotatoGame() {
     }
   }
 
+ 
+
+  
+
+
   async function submitAnswer(event) {
     event?.preventDefault();
     if (!session || !isMyTurn || !answer.trim() || loading) return;
@@ -172,6 +242,7 @@ export default function HotPotatoGame() {
       setLoading(false);
     }
   }
+  
 
   function resumeSavedSession() {
     const saved = readSavedSession();
@@ -236,13 +307,14 @@ export default function HotPotatoGame() {
     setSavedSessionExists(false);
   }
 
+ 
   if (!hydrated || !session) {
     return (
       <main className="page hot-page">
         <section className="hero">
           <div className="eyebrow">NUEVO MODO VERSUS</div>
           <h1>Bomba de tiempo</h1>
-          <p>90 segundos. Letras nuevas en cada turno. Gana quien nombre más luchadores.</p>
+          <RulesTooltip/>
         </section>
         <section className="home-card hot-home-card">
           <label className="field-label" htmlFor="hot-player-name">TU NOMBRE</label>

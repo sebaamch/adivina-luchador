@@ -9,9 +9,9 @@ export default function Home() {
   return (
     <main className="page game-select-page">
       <section className="hero game-select-hero">
-        <div className="eyebrow">WRESTLING • GAME CENTER</div>
-        <h1>ADIVINA EL LUCHADOR</h1>
-        <p>Elige cómo quieres competir.</p>
+        <div className="eyebrow">JUEGOS DE LUCHA LIBRE</div>
+        <h1>ESTO ES LUCHA</h1>
+        <p>Elige tu modo de juego</p>
       </section>
 
       <section className="game-mode-grid" aria-label="Modos de juego">
@@ -19,7 +19,7 @@ export default function Home() {
           <div className="game-mode-icon" aria-hidden="true">VS</div>
           <div className="game-mode-tag">Adivina el Luchador</div>
           <h2>Versus</h2>
-          <p>Elige un luchador secreto, descubre el de tu rival y gana por deducción.</p>
+          <p>Elige un luchador secreto y descubre cuál es el de tu rival</p>
           <span className="game-mode-cta">JUGAR VERSUS <span aria-hidden="true">→</span></span>
         </Link>
 
@@ -27,10 +27,10 @@ export default function Home() {
           <div className="game-mode-icon" aria-hidden="true">90s</div>
           <h2>Bomba de tiempo</h2>
           <p>Tienen 90 segundos para ganar.</p>
-          <span className="game-mode-cta">JUGAR Bomba de tiempo <span aria-hidden="true">→</span></span>
+          <span className="game-mode-cta">JUGAR BOMBA DE TIEMPO <span aria-hidden="true">→</span></span>
         </Link>
       </section>
-      <p className="game-select-footer">Dos modos de juego. Una sola arena.</p>
+      <p className="game-select-footer">Entretención para fans, por fans</p>
     </main>
   );
 }
