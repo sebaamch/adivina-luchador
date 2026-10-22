@@ -144,20 +144,57 @@ async function roomForPlayer(game, me) {
         ? publicWrestler(mySecretData)
         : null;
 
-    let opponentSecret = null;
+ let opponentSecret = null;
+let opponentAgeHint = null;
 
-    if (
-        game.status === "finished" &&
-        opponent?.secret_wrestler_id
-    ) {
-        const secret = wrestlerById.get(
-            String(opponent.secret_wrestler_id)
-        );
+if (opponent?.secret_wrestler_id) {
+    const secret = wrestlerById.get(
+        String(opponent.secret_wrestler_id)
+    );
 
-        opponentSecret = secret
-            ? publicWrestler(secret)
-            : null;
+    if (secret) {
+        // Revelar la identidad únicamente cuando termina la partida.
+        if (game.status === "finished") {
+            opponentSecret = publicWrestler(secret);
+        }
+
+        // Contar los intentos incorrectos del jugador actual.
+        const wrongGuesses = (guessesData || []).filter((guess) => {
+            if (guess.player_id !== me.id) {
+                return false;
+            }
+
+            return String(guess.wrestler_id) !==
+                String(opponent.secret_wrestler_id);
+        }).length;
+
+        // Mostrar la pista después de 5 intentos incorrectos.
+        if (wrongGuesses >= 5) {
+            const birthDate = secret.birth_date
+                ? new Date(secret.birth_date)
+                : null;
+
+            if (birthDate && !Number.isNaN(birthDate.getTime())) {
+                const today = new Date();
+
+                let age = today.getFullYear() - birthDate.getFullYear();
+
+                const birthdayNotReached =
+                    today.getMonth() < birthDate.getMonth() ||
+                    (
+                        today.getMonth() === birthDate.getMonth() &&
+                        today.getDate() < birthDate.getDate()
+                    );
+
+                if (birthdayNotReached) {
+                    age--;
+                }
+
+                opponentAgeHint = age;
+            }
+        }
     }
+}
 
     // Construir el historial sin consultar la BD dentro del bucle.
     const guesses = [];
@@ -218,6 +255,7 @@ async function roomForPlayer(game, me) {
         opponentConnected: Boolean(opponent),
         mySecret,
         opponentSecret,
+        opponentAgeHint,
 
         turnPlayer: bothSelected
             ? game.turn_player

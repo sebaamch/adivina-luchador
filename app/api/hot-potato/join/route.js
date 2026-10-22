@@ -33,6 +33,9 @@ export async function POST(request) {
     const token = makeToken();
     const startedAt = new Date();
     const endsAt = new Date(startedAt.getTime() + 90_000);
+    const turnEndsAt = new Date(
+  Math.min(startedAt.getTime() + 10_000, endsAt.getTime())
+);
 
     // La condición evita que dos personas ocupen simultáneamente el segundo puesto.
     const { data: joined, error: joinError } = await supabaseAdmin
@@ -44,7 +47,8 @@ export async function POST(request) {
         turn_player: 1,
         started_at: startedAt.toISOString(),
         ends_at: endsAt.toISOString(),
-        current_letters: currentLetters
+        current_letters: currentLetters,
+        turn_ends_at: turnEndsAt.toISOString()
       })
       .eq("id", game.id)
       .eq("status", "waiting")

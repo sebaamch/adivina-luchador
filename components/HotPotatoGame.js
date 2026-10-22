@@ -137,6 +137,21 @@ export default function HotPotatoGame() {
     if (!room?.endsAt) return 60;
     return Math.max(0, Math.ceil((new Date(room.endsAt).getTime() - now) / 1000));
   }, [room?.endsAt, now]);
+  const turnRemaining = useMemo(() => {
+    if (!room?.turnEndsAt) return 0;
+
+    return Math.max(
+      0,
+      Math.ceil(
+        (new Date(room.turnEndsAt).getTime() - now) / 1000
+      )
+    );
+  }, [room?.turnEndsAt, now]);
+
+  const turnProgress = Math.min(
+    100,
+    Math.max(0, (turnRemaining / 10) * 100)
+  );
 
   const isMyTurn = room?.status === "playing" && room?.turnPlayer === session?.playerNo;
   const me = room?.players?.find((player) => player.playerNo === session?.playerNo);
@@ -213,9 +228,9 @@ export default function HotPotatoGame() {
     }
   }
 
- 
 
-  
+
+
 
 
   async function submitAnswer(event) {
@@ -242,7 +257,45 @@ export default function HotPotatoGame() {
       setLoading(false);
     }
   }
-  
+  const passTurn = async () => {
+    if (!session || !room || !isMyTurn || loading) return;
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/hot-potato/${room.code}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            token: session.token,
+            action: "passTurn"
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "No se pudo pasar el turno.");
+        await refreshRoom(session);
+        return;
+      }
+
+      setMessage(data.message || "Turno pasado.");
+      await refreshRoom(session);
+    } catch (error) {
+      setError("No se pudo conectar con la partida.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   function resumeSavedSession() {
     const saved = readSavedSession();
@@ -307,14 +360,14 @@ export default function HotPotatoGame() {
     setSavedSessionExists(false);
   }
 
- 
+
   if (!hydrated || !session) {
     return (
       <main className="page hot-page">
         <section className="hero">
           <div className="eyebrow">NUEVO MODO VERSUS</div>
           <h1>Bomba de tiempo</h1>
-          <RulesTooltip/>
+          <RulesTooltip />
         </section>
         <section className="home-card hot-home-card">
           <label className="field-label" htmlFor="hot-player-name">TU NOMBRE</label>
@@ -374,6 +427,33 @@ export default function HotPotatoGame() {
             <strong>{formatTime(remaining)}</strong>
           </div>
           <p className="hot-turn-label">{isMyTurn ? "🔥 ES TU TURNO" : `⏳ TURNO DE ${opponent?.name || "TU RIVAL"}`}</p>
+          <div className="hot-turn-timer">
+            <div className="hot-turn-timer-header">
+              <span>TIEMPO DE TU TURNO</span>
+              <strong className={turnRemaining <= 3 ? "danger" : ""}>
+                {turnRemaining}s
+              </strong>
+            </div>
+
+            <div
+              className="hot-turn-progress"
+              role="progressbar"
+              aria-label="Tiempo restante del turno"
+              aria-valuemin={0}
+              aria-valuemax={10}
+              aria-valuenow={turnRemaining}
+            >
+              <div
+                className={`hot-turn-progress-fill ${turnRemaining <= 3
+                    ? "danger"
+                    : turnRemaining <= 5
+                      ? "warning"
+                      : ""
+                  }`}
+                style={{ width: `${turnProgress}%` }}
+              />
+            </div>
+          </div>
           <p className="hot-instructions">Escribe un luchador de la base de datos que puedas formar con estas letras. Cada nombre solo puntúa una vez. Cada respuesta pasa el turno y cambia las letras.</p>
           <div className="hot-letters" aria-label="Letras disponibles">
             {(room.currentLetters || []).map((letter, index) => <span className="hot-letter" key={`${letter}-${index}`}>{letter}</span>)}

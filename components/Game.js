@@ -553,11 +553,11 @@ export default function Game() {
     w?.local_image ||
     "/wrestlers/default.svg";
 
-  function choose(w) {
-    setSelected(w);
-    setQuery("");
-    setOptions([]);
-  }
+ function choose(w) {
+  setSelected(w);
+  setQuery(w.name);
+  setOptions([]);
+}
 
   /*
    * PANTALLA INICIAL
@@ -839,6 +839,7 @@ export default function Game() {
               disabled={false}
               img={img}
               selected={selected}
+              setSelected={setSelected}
             />
 
             <button
@@ -938,6 +939,22 @@ export default function Game() {
       {!choosing &&
         !finished && (
           <section className="game-card">
+            {/* PISTA DE EDAD DEL LUCHADOR SECRETO */}
+{room?.opponentAgeHint !== null &&
+ room?.opponentAgeHint !== undefined && (
+  <div
+    className="age-hint"
+    role="status"
+    aria-live="polite"
+  >
+    <span>💡 PISTA DESBLOQUEADA</span>
+
+    <p>
+      El luchador secreto de tu rival tiene{" "}
+      <strong>{room.opponentAgeHint} años</strong>.
+    </p>
+  </div>
+)}
 
             <div
               className={`turn-banner ${myTurn
@@ -965,6 +982,8 @@ export default function Game() {
               }
               img={img}
               selected={selected}
+              setSelected={setSelected}
+
             />
 
             <button
@@ -1416,7 +1435,8 @@ function GuessSearch({
   options,
   choose,
   disabled,
-  selected
+  selected,
+  setSelected
 }) {
   return (
     <div className="search-box">
@@ -1424,16 +1444,15 @@ function GuessSearch({
       <div className="input-wrap">
 
         <input
-          value={query}
-          onChange={(e) =>
-            setQuery(
-              e.target.value
-            )
-          }
-          placeholder="Escribe el nombre de un luchador..."
-          autoComplete="off"
-          disabled={disabled}
-        />
+  value={selected ? selected.name : query}
+  onChange={(e) => {
+    setSelected(null);
+    setQuery(e.target.value);
+  }}
+  placeholder="Escribe el nombre de un luchador..."
+  autoComplete="off"
+  disabled={disabled}
+/>
 
         {!selected &&
           options.length > 0 && (
