@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { hashToken } from "@/lib/game";
-import { canFormName, getAvailableWrestlers, makeHotPotatoLetters, normalizeWrestlerName } from "@/lib/hotPotato";
+import {
+  canFormName,
+  getAvailableWrestlers,
+  makeHotPotatoLetters,
+  normalizeWrestlerName
+} from "@/lib/hotPotato";
 
 export const dynamic = "force-dynamic";
 
 function playerNoForToken(game, token) {
   if (!token) return null;
+
   const tokenHash = hashToken(token);
+
   if (game.player1_token_hash === tokenHash) return 1;
-  if (game.player2_token_hash && game.player2_token_hash === tokenHash) return 2;
+
+  if (
+    game.player2_token_hash &&
+    game.player2_token_hash === tokenHash
+  ) {
+    return 2;
+  }
+
   return null;
 }
 
@@ -19,14 +33,14 @@ async function readGame(code) {
     .select("*")
     .eq("code", String(code).toUpperCase())
     .maybeSingle();
+
   if (error) throw error;
+
   return data;
 }
 
 async function expireIfNeeded(game) {
-  if (!game || game.status !== "playing") {
-    return game;
-  }
+  if (!game || game.status !== "playing") return game;
 
   const { error } = await supabaseAdmin.rpc(
     "advance_hot_potato_turn_if_expired",
@@ -35,18 +49,61 @@ async function expireIfNeeded(game) {
 
   if (error) throw error;
 
-  // Volver a leer la sala para obtener el turno actualizado.
   return await readGame(game.code);
 }
 
-function publicRoom(game, playerNo) {
+async function publicRoom(game, playerNo) {
+  let history = game.history || [];
+
+  // Al finalizar, calcula los nombres que podían formarse
+  // con las letras guardadas en cada turno.
+  if (game.status === "finished" && history.length > 0) {
+    const wrestlers = await getAvailableWrestlers();
+
+    history = history.map((item) => {
+      const letters = Array.isArray(item.letters)
+        ? item.letters
+        : null;
+
+      if (!letters) {
+        return { ...item, possibleNames: [] };
+      }
+
+      const possibleNames = [
+        ...new Set(
+          wrestlers
+            .filter(
+              (wrestler) =>
+                wrestler?.name &&
+                canFormName(wrestler.name, letters)
+            )
+            .map((wrestler) => wrestler.name)
+        )
+      ].sort((a, b) => a.localeCompare(b, "es"));
+
+      return { ...item, possibleNames };
+    });
+  }
+
   return {
     code: game.code,
     status: game.status,
     playerNo,
     players: [
-      { playerNo: 1, name: game.player1_name, score: game.player1_score || 0 },
-      ...(game.player2_name ? [{ playerNo: 2, name: game.player2_name, score: game.player2_score || 0 }] : [])
+      {
+        playerNo: 1,
+        name: game.player1_name,
+        score: game.player1_score || 0
+      },
+      ...(game.player2_name
+        ? [
+            {
+              playerNo: 2,
+              name: game.player2_name,
+              score: game.player2_score || 0
+            }
+          ]
+        : [])
     ],
     turnPlayer: game.status === "playing" ? game.turn_player : null,
     currentLetters: game.current_letters || [],
@@ -55,8 +112,15 @@ function publicRoom(game, playerNo) {
     turnEndsAt: game.turn_ends_at,
     player1Score: game.player1_score || 0,
     player2Score: game.player2_score || 0,
-    history: game.history || [],
-    winner: game.status !== "finished" ? null : (game.player1_score === game.player2_score ? "draw" : game.player1_score > game.player2_score ? 1 : 2)
+    history,
+    winner:
+      game.status !== "finished"
+        ? null
+        : game.player1_score === game.player2_score
+          ? "draw"
+          : game.player1_score > game.player2_score
+            ? 1
+            : 2
   };
 }
 
@@ -64,18 +128,41 @@ export async function GET(request, { params }) {
   try {
     const { code } = await params;
     const token = new URL(request.url).searchParams.get("token");
+
     let game = await readGame(code);
-    if (!game) return NextResponse.json({ error: "Sala no encontrada." }, { status: 404 });
+
+    if (!game) {
+      return NextResponse.json(
+        { error: "Sala no encontrada." },
+        { status: 404 }
+      );
+    }
+
     const playerNo = playerNoForToken(game, token);
-    if (!playerNo) return NextResponse.json({ error: "Token de jugador inválido." }, { status: 401 });
+
+    if (!playerNo) {
+      return NextResponse.json(
+        { error: "Token de jugador inválido." },
+        { status: 401 }
+      );
+    }
+
     game = await expireIfNeeded(game);
-    return NextResponse.json(publicRoom(game, playerNo));
+
+    return NextResponse.json(await publicRoom(game, playerNo));
   } catch (error) {
     console.error("Error consultando Bomba de tiempo:", error);
-    return NextResponse.json({ error: error.message || "No se pudo consultar la sala." }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error:
+          error.message ||
+          "No se pudo consultar la sala."
+      },
+      { status: 500 }
+    );
   }
 }
-
 
 export async function POST(request, { params }) {
   try {
@@ -113,18 +200,25 @@ export async function POST(request, { params }) {
 
       if (!game.player2_name) {
         return NextResponse.json(
-          { error: "Se necesita un segundo jugador para la revancha." },
+          {
+            error:
+              "Se necesita un segundo jugador para la revancha."
+          },
           { status: 409 }
         );
       }
 
-     const startedAt = new Date();
-const endsAt = new Date(
-  startedAt.getTime() + 90_000
-);
-const turnEndsAt = new Date(
-  Math.min(startedAt.getTime() + 10_000, endsAt.getTime())
-);
+      const startedAt = new Date();
+      const endsAt = new Date(
+        startedAt.getTime() + 90_000
+      );
+
+      const turnEndsAt = new Date(
+        Math.min(
+          startedAt.getTime() + 15_000,
+          endsAt.getTime()
+        )
+      );
 
       const newLetters = await makeHotPotatoLetters([]);
 
@@ -153,7 +247,8 @@ const turnEndsAt = new Date(
       if (!restartedGame) {
         return NextResponse.json(
           {
-            error: "La revancha ya fue iniciada o la partida cambió. Actualiza la sala."
+            error:
+              "La revancha ya fue iniciada o la partida cambió. Actualiza la sala."
           },
           { status: 409 }
         );
@@ -162,53 +257,58 @@ const turnEndsAt = new Date(
       return NextResponse.json({
         success: true,
         message: "¡Comienza la revancha!",
-        room: publicRoom(restartedGame, playerNo)
+        room: await publicRoom(restartedGame, playerNo)
       });
     }
+
+    // PASAR EL TURNO.
     if (action === "passTurn") {
-  game = await expireIfNeeded(game);
+      game = await expireIfNeeded(game);
 
-  if (game.status !== "playing") {
-    return NextResponse.json(
-      { error: "La partida ya terminó." },
-      { status: 409 }
-    );
-  }
+      if (game.status !== "playing") {
+        return NextResponse.json(
+          { error: "La partida ya terminó." },
+          { status: 409 }
+        );
+      }
 
-  const { data: result, error: rpcError } =
-    await supabaseAdmin.rpc("pass_hot_potato_turn", {
-      p_code: String(code).toUpperCase(),
-      p_player_no: playerNo
-    });
+      const { data: result, error: rpcError } =
+        await supabaseAdmin.rpc(
+          "pass_hot_potato_turn",
+          {
+            p_code: String(code).toUpperCase(),
+            p_player_no: playerNo
+          }
+        );
 
-  if (rpcError) throw rpcError;
+      if (rpcError) throw rpcError;
 
-  if (!result?.ok) {
-    const errors = {
-      not_found: "Sala no encontrada.",
-      not_playing: "La partida ya no está activa.",
-      wrong_turn: "No es tu turno.",
-      turn_expired: "Se acabó el tiempo del turno."
-    };
+      if (!result?.ok) {
+        const errors = {
+          not_found: "Sala no encontrada.",
+          not_playing: "La partida ya no está activa.",
+          wrong_turn: "No es tu turno.",
+          turn_expired: "Se acabó el tiempo del turno."
+        };
 
-    return NextResponse.json(
-      {
-        error:
-          errors[result?.error] ||
-          "No se pudo pasar el turno."
-      },
-      { status: 409 }
-    );
-  }
+        return NextResponse.json(
+          {
+            error:
+              errors[result?.error] ||
+              "No se pudo pasar el turno."
+          },
+          { status: 409 }
+        );
+      }
 
-  const updatedGame = await readGame(code);
+      const updatedGame = await readGame(code);
 
-  return NextResponse.json({
-    success: true,
-    message: "Turno pasado. No sumas puntos.",
-    room: publicRoom(updatedGame, playerNo)
-  });
-}
+      return NextResponse.json({
+        success: true,
+        message: "Turno pasado. No sumas puntos.",
+        room: await publicRoom(updatedGame, playerNo)
+      });
+    }
 
     const answer = String(body?.answer || "")
       .trim()
@@ -247,17 +347,21 @@ const turnEndsAt = new Date(
 
     const wrestler =
       wrestlers.find(
-        (w) =>
-          normalizeWrestlerName(w.name) === normalizedAnswer
+        (item) =>
+          normalizeWrestlerName(item.name) === normalizedAnswer
       ) || null;
 
     const usedIds = (game.used_wrestler_ids || []).map(String);
+
     const alreadyUsed = wrestler
       ? usedIds.includes(String(wrestler.id))
       : false;
 
     const lettersMatch = wrestler
-      ? canFormName(wrestler.name, game.current_letters || [])
+      ? canFormName(
+          wrestler.name,
+          game.current_letters || []
+        )
       : false;
 
     const scoredWrestler =
@@ -272,15 +376,18 @@ const turnEndsAt = new Date(
     const nextLetters = await makeHotPotatoLetters(nextUsedIds);
 
     const { data: result, error: rpcError } =
-  await supabaseAdmin.rpc("submit_hot_potato_turn", {
-    p_code: String(code).toUpperCase(),
-    p_player_no: playerNo,
-    p_wrestler_id: scoredWrestler
-      ? String(scoredWrestler.id)
-      : null,
-    p_answer_name: answer,
-    p_new_letters: nextLetters
-  });
+      await supabaseAdmin.rpc(
+        "submit_hot_potato_turn",
+        {
+          p_code: String(code).toUpperCase(),
+          p_player_no: playerNo,
+          p_wrestler_id: scoredWrestler
+            ? String(scoredWrestler.id)
+            : null,
+          p_answer_name: answer,
+          p_new_letters: nextLetters
+        }
+      );
 
     if (rpcError) throw rpcError;
 

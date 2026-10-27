@@ -2132,3 +2132,95 @@ body {
   color: #d4a72c;
 }
 
+
+.hot-results-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.hot-possible-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.hot-possible-turn {
+  padding: 1rem;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.hot-possible-turn-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.hot-possible-turn-header span,
+.hot-possible-count {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.hot-possible-letters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0;
+}
+
+.hot-possible-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hot-possible-name {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+.hot-letter-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin: 1rem 0;
+}
+
+.hot-shuffle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.hot-shuffle-button:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+  transform: translateY(-1px);
+}
+
+.hot-shuffle-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hot-shuffle-button span {
+  font-size: 1.1rem;
+}
+
+
