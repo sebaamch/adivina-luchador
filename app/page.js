@@ -29,6 +29,31 @@ export default function Home() {
           <p>Tienen 90 segundos para ganar.</p>
           <span className="game-mode-cta">JUGAR BOMBA DE TIEMPO <span aria-hidden="true">→</span></span>
         </Link>
+
+        <Link
+          href="/mas-cerca"
+          className="game-mode-card closer-mode-card"
+        >
+          <div className="game-mode-icon" aria-hidden="true">
+            ±
+          </div>
+
+          <div className="game-mode-tag">
+            RETO DE CONOCIMIENTO
+          </div>
+
+          <h2>¿Quién está más cerca?</h2>
+
+          <p>
+            Compara edades, debuts, pesos y alturas de tus luchadores favoritos.
+            Gana quien se acerque más.
+          </p>
+
+          <span className="game-mode-cta">
+            JUGAR AHORA <span aria-hidden="true">→</span>
+          </span>
+        </Link>
+
       </section>
       <p className="game-select-footer">Entretención para fans, por fans</p>
     </main>

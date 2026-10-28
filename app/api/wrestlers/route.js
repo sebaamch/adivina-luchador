@@ -16,7 +16,7 @@ export async function GET(request) {
 
     const { data, error } = await supabase
       .from("wrestlers")
-      .select("id, name,local_image")
+      .select("id, name,local_image,birth_date,debut_year,height_cm,weight_kg")
       .eq("eligible", true)
       .ilike("name", `%${q}%`)
       .order("name", { ascending: true })
@@ -35,6 +35,10 @@ export async function GET(request) {
       id: w.id,
       name: w.name,
       local_image: w.local_image ?? `/wrestlers/${w.id}.svg`,
+      birth_date: w.birth_date,
+      debut_year: w.debut_year,
+      height_cm: w.height_cm,
+      weight_kg: w.weight_kg,
     }));
 
     return NextResponse.json(
