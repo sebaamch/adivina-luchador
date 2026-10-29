@@ -471,7 +471,24 @@ export default function CloserGame() {
                     </form>
                 </section>
 
-                {error && <p className="closer-error">{error}</p>}
+                {error && <p className="closer-error">{error}</p>}´
+                <button
+            className="secondary"
+            onClick={() => {
+              localStorage.removeItem(
+                "adivina-versus-session"
+              );
+
+              setSession(null);
+              setRoom(null);
+              setError("");
+              setQuery("");
+              setSelected(null);
+              window.location.href = "/";
+            }}
+          >
+            VOLVER AL MENÚ DE JUEGOS
+          </button>
             </main>
         );
     }
@@ -618,7 +635,6 @@ export default function CloserGame() {
             </section>
 
             <section className="closer-challenge">
-                <p className="closer-round-label">EL DESAFÍO</p>
                 <h2>{room.challenge?.label}</h2>
 
                 <div className="closer-reference">
@@ -787,7 +803,6 @@ export default function CloserGame() {
 
                     <p className="closer-muted">
                         Diferencia con la referencia:{" "}
-
                         <strong
                             style={{
                                 display: "block",
@@ -883,7 +898,7 @@ export default function CloserGame() {
                         <p
                             style={{
                                 margin: "0 0 8px",
-                                color: "#f87171",
+                                color: "#f1f1f1",
                                 fontWeight: 800,
                                 letterSpacing: ".12em",
                                 fontSize: ".75rem"
@@ -909,7 +924,7 @@ export default function CloserGame() {
                         </h2>
 
                         <p style={{ margin: "0 0 22px", color: "#c4c4c4" }}>
-                            Diferencia con la referencia
+                            Diferencia 
                         </p>
 
                         <div
@@ -1027,7 +1042,7 @@ export default function CloserGame() {
                             onClick={() => setResultModalOpen(false)}
                             style={{ width: "100%" }}
                         >
-                            Ver respuestas
+                            Continuar
                         </button>
                     </section>
                 </div>

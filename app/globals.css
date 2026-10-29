@@ -2483,8 +2483,8 @@ body {
 
 .closer-round-outcome {
   padding: 16px;
+  background-color:#3888e4;
   border-radius: 12px;
-  background: rgba(230, 36, 41, 0.12);
   font-weight: 700;
   text-align: center;
 }
