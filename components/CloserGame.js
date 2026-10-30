@@ -596,7 +596,7 @@ export default function CloserGame() {
                             </span>
                         </div>
                     ))}
-                    <button type="button" onClick={leaveRoom}>
+                    <button type="button" className="hot-back-link" onClick={leaveRoom}>
                         Volver al menú
                     </button>
                 </section>
