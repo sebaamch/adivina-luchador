@@ -2607,5 +2607,11 @@ body {
 .closer-results-modal button {
   margin-top: 16px;
 }
+.error-button {
+  background-color:  #e90b0b;
+  color: white;
+
+}
+
 
 

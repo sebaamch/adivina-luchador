@@ -92,7 +92,7 @@ export default function Game() {
   const [loading, setLoading] =
     useState(false);
 
-  const [screenLoading, setScreenLoading] = 
+  const [screenLoading, setScreenLoading] =
     useState(false);
 
   const [error, setError] =
@@ -553,11 +553,11 @@ export default function Game() {
     w?.local_image ||
     "/wrestlers/default.svg";
 
- function choose(w) {
-  setSelected(w);
-  setQuery(w.name);
-  setOptions([]);
-}
+  function choose(w) {
+    setSelected(w);
+    setQuery(w.name);
+    setOptions([]);
+  }
 
   /*
    * PANTALLA INICIAL
@@ -569,19 +569,19 @@ export default function Game() {
   ) {
     return (
       <main className="page home-page">
-      {screenLoading && <LoadingScreen />}
+        {screenLoading && <LoadingScreen />}
 
         <section className="hero">
 
           <div className="eyebrow">
-              VERSUS
+            VERSUS
           </div>
 
           <h1>
             ADIVINA EL LUCHADOR
           </h1>
-           
-           <RulesTooltip />
+
+          <RulesTooltip />
 
         </section>
 
@@ -684,7 +684,7 @@ export default function Game() {
    */
   return (
     <main className="page">
-    {screenLoading && <LoadingScreen />}
+      {screenLoading && <LoadingScreen />}
 
       <section className="hero compact">
 
@@ -940,21 +940,21 @@ export default function Game() {
         !finished && (
           <section className="game-card">
             {/* PISTA DE EDAD DEL LUCHADOR SECRETO */}
-{room?.opponentAgeHint !== null &&
- room?.opponentAgeHint !== undefined && (
-  <div
-    className="age-hint"
-    role="status"
-    aria-live="polite"
-  >
-    <span>💡 PISTA DESBLOQUEADA</span>
+            {room?.opponentAgeHint !== null &&
+              room?.opponentAgeHint !== undefined && (
+                <div
+                  className="age-hint"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span>💡 PISTA DESBLOQUEADA</span>
 
-    <p>
-      El luchador secreto de tu rival tiene{" "}
-      <strong>{room.opponentAgeHint} años</strong>.
-    </p>
-  </div>
-)}
+                  <p>
+                    El luchador secreto de tu rival tiene{" "}
+                    <strong>{room.opponentAgeHint} años</strong>.
+                  </p>
+                </div>
+              )}
 
             <div
               className={`turn-banner ${myTurn
@@ -1104,7 +1104,7 @@ export default function Game() {
                                     row.local_image ||
                                     "/wrestlers/default.svg"
                                   }
-                                    className="wrestler-image"
+                                  className="wrestler-image"
 
                                 />
 
@@ -1276,7 +1276,7 @@ function SafeImage({
   src,
   fallback,
   alt = "",
-  className ="wrestler-image"
+  className = "wrestler-image"
 }) {
   const [url, setUrl] =
     useState(
@@ -1297,7 +1297,7 @@ function SafeImage({
       className={className}
       src={url}
       alt={alt}
-      
+
       onError={() =>
         setUrl(fallback)
       }
@@ -1335,7 +1335,7 @@ function PlayerBox({
               secret.local_image ||
               "/wrestlers/default.svg"
             }
-            
+
           />
 
           <strong>
@@ -1444,15 +1444,15 @@ function GuessSearch({
       <div className="input-wrap">
 
         <input
-  value={selected ? selected.name : query}
-  onChange={(e) => {
-    setSelected(null);
-    setQuery(e.target.value);
-  }}
-  placeholder="Escribe el nombre de un luchador..."
-  autoComplete="off"
-  disabled={disabled}
-/>
+          value={selected ? selected.name : query}
+          onChange={(e) => {
+            setSelected(null);
+            setQuery(e.target.value);
+          }}
+          placeholder="Escribe el nombre de un luchador..."
+          autoComplete="off"
+          disabled={disabled}
+        />
 
         {!selected &&
           options.length > 0 && (
