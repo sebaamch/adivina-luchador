@@ -1,6 +1,5 @@
-
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,17 @@ function generateCode() {
     .slice(0, 6);
 }
 
+function generateCreatorToken() {
+  return randomBytes(32).toString("hex");
+}
+
+function hashToken(token) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 export async function POST(request) {
+  let createdChallengeId = null;
+
   try {
     const body = await request.json();
 
@@ -36,7 +45,12 @@ export async function POST(request) {
       clues = [],
     } = body;
 
-    if (!creator_name?.trim() || !title?.trim()) {
+    if (
+      typeof creator_name !== "string" ||
+      !creator_name.trim() ||
+      typeof title !== "string" ||
+      !title.trim()
+    ) {
       return NextResponse.json(
         { error: "Debes indicar el nombre del creador y el título." },
         { status: 400 }
@@ -57,11 +71,26 @@ export async function POST(request) {
       );
     }
 
-    // Generar un código único
+    if (
+      !settings ||
+      typeof settings !== "object" ||
+      Array.isArray(settings)
+    ) {
+      return NextResponse.json(
+        { error: "La configuración del desafío no es válida." },
+        { status: 400 }
+      );
+    }
+
+    // Generar acceso privado del creador
+    const creatorToken = generateCreatorToken();
+    const creatorTokenHash = hashToken(creatorToken);
+
     let code;
     let challenge;
     let error;
 
+    // Generar un código único
     for (let attempt = 0; attempt < 5; attempt++) {
       code = generateCode();
 
@@ -75,6 +104,7 @@ export async function POST(request) {
           instructions,
           settings,
           status: "waiting",
+          creator_token_hash: creatorTokenHash,
         })
         .select("id, code, title, format, status")
         .single();
@@ -92,6 +122,8 @@ export async function POST(request) {
     if (!challenge) {
       throw error || new Error("No fue posible generar un código único.");
     }
+
+    createdChallengeId = challenge.id;
 
     // Guardar elementos del desafío
     if (items.length > 0) {
@@ -136,11 +168,20 @@ export async function POST(request) {
           format: challenge.format,
           status: challenge.status,
         },
+        creator_token: creatorToken,
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error creando desafío:", error);
+
+    // Evitar dejar un desafío incompleto si falla el guardado
+    if (createdChallengeId) {
+      await supabaseAdmin
+        .from("custom_challenges")
+        .delete()
+        .eq("id", createdChallengeId);
+    }
 
     return NextResponse.json(
       { error: "No fue posible crear el desafío." },
