@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -11,6 +12,11 @@ export default function ObservarDesafioPage() {
     const [token, setToken] = useState("");
     const [challenge, setChallenge] = useState(null);
     const [eventos, setEventos] = useState([]);
+    const [questions, setQuestions] = useState([]);
+    const [revealedWrestler, setRevealedWrestler] = useState(null);
+    const [remainingSeconds, setRemainingSeconds] = useState(90);
+    const [readyLoading, setReadyLoading] = useState(false);
+    const [answerLoading, setAnswerLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -18,7 +24,7 @@ export default function ObservarDesafioPage() {
         if (!codigo || !token) return;
 
         try {
-            // Obtener los datos públicos del desafío y sus luchadores.
+            // Obtener los datos públicos del desafío.
             const challengeResponse = await fetch(
                 `/api/desafios/${codigo}`,
                 { cache: "no-store" }
@@ -53,6 +59,36 @@ export default function ObservarDesafioPage() {
 
             setChallenge(challengeData.challenge);
             setEventos(eventsData.eventos || []);
+
+            if (challengeData.challenge.format === "yes_no_questions") {
+                const questionsResponse = await fetch(
+                    `/api/desafios/${codigo}/preguntas`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                        cache: "no-store",
+                    }
+                );
+
+                const questionsData = await questionsResponse.json();
+
+                if (!questionsResponse.ok) {
+                    throw new Error(
+                        questionsData.error ||
+                        "No se pudieron cargar las preguntas."
+                    );
+                }
+
+                setQuestions(questionsData.questions || []);
+
+                setRevealedWrestler(
+                    challengeData.challenge.status === "finished"
+                        ? challengeData.wrestlers?.[0] || null
+                        : null
+                );
+            }
+
             setError("");
         } catch (err) {
             setError(err.message || "Error al cargar la partida.");
@@ -61,6 +97,79 @@ export default function ObservarDesafioPage() {
         }
     }, [codigo, token]);
 
+    // Marcar al creador como listo.
+    async function marcarListo() {
+        if (!token || readyLoading || challenge?.creator_ready) return;
+
+        setReadyLoading(true);
+        setError("");
+
+        try {
+            const response = await fetch(
+                `/api/desafios/${codigo}/listo`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        role: "creator",
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "No se pudo marcar como listo."
+                );
+            }
+
+            await cargarPartida();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setReadyLoading(false);
+        }
+    }
+
+    // Responder una pregunta del adversario.
+    async function responderPregunta(questionId, answer) {
+        if (answerLoading) return;
+
+        setAnswerLoading(true);
+        setError("");
+
+        try {
+            const response = await fetch(
+                `/api/desafios/${codigo}/preguntas/${questionId}/responder`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ answer }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "No se pudo responder.");
+            }
+
+            await cargarPartida();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setAnswerLoading(false);
+        }
+    }
+
+    // Recuperar la sesión del creador.
     useEffect(() => {
         const savedToken = sessionStorage.getItem(
             `desafio-creador-${codigo}`
@@ -75,6 +184,7 @@ export default function ObservarDesafioPage() {
         setToken(savedToken);
     }, [codigo]);
 
+    // Consultar la partida periódicamente.
     useEffect(() => {
         if (!token) return;
 
@@ -85,6 +195,43 @@ export default function ObservarDesafioPage() {
         return () => clearInterval(interval);
     }, [token, cargarPartida]);
 
+    const isYesNoQuestions =
+        challenge?.format === "yes_no_questions";
+
+    // Temporizador de 90 segundos.
+    // Este Hook debe estar antes de cualquier retorno condicional.
+    useEffect(() => {
+        if (
+            !isYesNoQuestions ||
+            challenge?.status !== "playing" ||
+            !challenge?.ends_at
+        ) {
+            return;
+        }
+
+        const actualizarTiempo = () => {
+            const diferencia = Math.max(
+                0,
+                Math.ceil(
+                    (new Date(challenge.ends_at).getTime() - Date.now()) / 1000
+                )
+            );
+
+            setRemainingSeconds(diferencia);
+        };
+
+        actualizarTiempo();
+
+        const interval = setInterval(actualizarTiempo, 1000);
+
+        return () => clearInterval(interval);
+    }, [
+        isYesNoQuestions,
+        challenge?.status,
+        challenge?.ends_at
+    ]);
+
+    // Todos los retornos condicionales van después de los Hooks.
     if (loading) {
         return (
             <main className="page">
@@ -99,6 +246,7 @@ export default function ObservarDesafioPage() {
                 <section className="hero">
                     <h1>No se pudo cargar la partida</h1>
                     <p>{error}</p>
+
                     <button
                         className="primary"
                         onClick={() => router.push("/desafios")}
@@ -157,7 +305,10 @@ export default function ObservarDesafioPage() {
         wrestler?.image_url ||
         "/wrestlers/default.svg";
 
-    function SafeImage({ wrestler, className = "wrestler-image" }) {
+    function SafeImage({
+        wrestler,
+        className = "wrestler-image"
+    }) {
         const [src, setSrc] = useState(image(wrestler));
 
         useEffect(() => {
@@ -203,7 +354,9 @@ export default function ObservarDesafioPage() {
                             fontSize: 13,
                         }}
                     >
-                        ● {finished ? "DESAFÍO COMPLETADO" : "OBSERVANDO EN VIVO"}
+                        ● {finished
+                            ? "DESAFÍO COMPLETADO"
+                            : "OBSERVANDO EN VIVO"}
                     </span>
                 </div>
             </section>
@@ -218,11 +371,248 @@ export default function ObservarDesafioPage() {
                     ← VOLVER A DESAFÍOS
                 </button>
 
-                <div className="game-mode-tag">
-                    {isImpostor ? "EL IMPOSTOR" : "LUCHADOR SECRETO"}
-                </div>
+                {isYesNoQuestions ? (
+                    <>
+                        <div className="game-mode-tag">
+                            PREGUNTAS SÍ / NO
+                        </div>
 
-                {isImpostor ? (
+                        <h2>PARTIDA DE PREGUNTAS</h2>
+
+                        <p>
+                            El adversario debe descubrir al luchador secreto
+                            realizando preguntas que puedas responder con Sí o No.
+                        </p>
+
+                        {challenge.status === "waiting" && (
+                            <div
+                                style={{
+                                    marginTop: 24,
+                                    padding: 20,
+                                    borderRadius: 12,
+                                    border: "1px solid var(--border-color, #444)",
+                                    textAlign: "center",
+                                }}
+                            >
+                                <h3>ESPERANDO PARA COMENZAR</h3>
+
+                                <p>
+                                    Adversario: {challenge.opponent_name || "Esperando jugador"}
+                                </p>
+
+                                <p>
+                                    Tu estado: {challenge.creator_ready
+                                        ? "LISTO"
+                                        : "NO LISTO"}
+                                </p>
+
+                                <p>
+                                    Estado del adversario: {challenge.opponent_ready
+                                        ? "LISTO"
+                                        : "NO LISTO"}
+                                </p>
+
+                                <button
+                                    type="button"
+                                    className="primary"
+                                    onClick={marcarListo}
+                                    disabled={
+                                        readyLoading ||
+                                        challenge.creator_ready ||
+                                        !challenge.opponent_name
+                                    }
+                                    style={{ marginTop: 16 }}
+                                >
+                                    {readyLoading
+                                        ? "PROCESANDO..."
+                                        : challenge.creator_ready
+                                            ? "YA ESTÁS LISTO"
+                                            : "ESTOY LISTO"}
+                                </button>
+
+                                {!challenge.opponent_name && (
+                                    <p style={{ marginTop: 12 }}>
+                                        Cuando alguien ingrese con tu código podrás marcarte como listo.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {challenge.status === "playing" && (
+                            <>
+                                <div
+                                    style={{
+                                        marginTop: 24,
+                                        padding: 20,
+                                        borderRadius: 12,
+                                        textAlign: "center",
+                                        background: "rgba(34,197,94,.10)",
+                                    }}
+                                >
+                                    <h3>PARTIDA EN CURSO</h3>
+
+                                    <div
+                                        style={{
+                                            fontSize: 42,
+                                            fontWeight: 800,
+                                            margin: "12px 0",
+                                        }}
+                                    >
+                                        {Math.floor(remainingSeconds / 60)
+                                            .toString()
+                                            .padStart(2, "0")}
+                                        :
+                                        {(remainingSeconds % 60)
+                                            .toString()
+                                            .padStart(2, "0")}
+                                    </div>
+
+                                    <p>
+                                        Responde las preguntas del adversario.
+                                    </p>
+                                </div>
+
+                                <div style={{ marginTop: 28 }}>
+                                    <h3>PREGUNTAS DEL ADVERSARIO</h3>
+
+                                    {questions.length === 0 ? (
+                                        <p>
+                                            Todavía no hay preguntas. Esperando al adversario...
+                                        </p>
+                                    ) : (
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: 16,
+                                                marginTop: 16,
+                                            }}
+                                        >
+                                            {questions.map((question) => (
+                                                <div
+                                                    key={question.id}
+                                                    style={{
+                                                        padding: 16,
+                                                        borderRadius: 12,
+                                                        border: "1px solid var(--border-color, #444)",
+                                                    }}
+                                                >
+                                                    <p
+                                                        style={{
+                                                            fontSize: 12,
+                                                            opacity: 0.7,
+                                                        }}
+                                                    >
+                                                        {question.player_name || "Adversario"}
+                                                    </p>
+
+                                                    <h3>
+                                                        {question.question_text}
+                                                    </h3>
+
+                                                    {question.status === "pending" ? (
+                                                        <div
+                                                            style={{
+                                                                display: "flex",
+                                                                gap: 12,
+                                                                marginTop: 16,
+                                                            }}
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                className="primary"
+                                                                disabled={answerLoading}
+                                                                onClick={() =>
+                                                                    responderPregunta(
+                                                                        question.id,
+                                                                        true
+                                                                    )
+                                                                }
+                                                            >
+                                                                SÍ
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                className="secondary"
+                                                                disabled={answerLoading}
+                                                                onClick={() =>
+                                                                    responderPregunta(
+                                                                        question.id,
+                                                                        false
+                                                                    )
+                                                                }
+                                                            >
+                                                                NO
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <p
+                                                            style={{
+                                                                marginTop: 12,
+                                                                fontWeight: 700,
+                                                                color: question.answer
+                                                                    ? "#22c55e"
+                                                                    : "#ef4444",
+                                                            }}
+                                                        >
+                                                            RESPUESTA: {question.answer
+                                                                ? "SÍ"
+                                                                : "NO"}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        {challenge.status === "finished" && (
+                            <div
+                                className="message success"
+                                style={{ marginTop: 24 }}
+                            >
+                                <h3>PARTIDA FINALIZADA</h3>
+
+                                <p>
+                                    Resultado:{" "}
+                                    <strong>
+                                        {challenge.winner || "Tiempo agotado"}
+                                    </strong>
+                                </p>
+
+                                {revealedWrestler && (
+                                    <div
+                                        style={{
+                                            marginTop: 20,
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        <h3>EL LUCHADOR SECRETO ERA:</h3>
+
+                                        <img
+                                            src={
+                                                revealedWrestler.local_image ||
+                                                "/wrestlers/default.svg"
+                                            }
+                                            alt={revealedWrestler.name}
+                                            style={{
+                                                width: 180,
+                                                height: 180,
+                                                objectFit: "contain",
+                                                margin: "16px auto",
+                                            }}
+                                        />
+
+                                        <h2>{revealedWrestler.name}</h2>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
+                ) : isImpostor ? (
                     <>
                         <h2>¿QUIÉN ES EL IMPOSTOR?</h2>
 
@@ -235,8 +625,7 @@ export default function ObservarDesafioPage() {
                             className="impostor-grid"
                             style={{
                                 display: "grid",
-                                gridTemplateColumns:
-                                    "repeat(2, minmax(0, 1fr))",
+                                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                                 gap: 16,
                                 marginTop: 24,
                             }}
@@ -313,12 +702,14 @@ export default function ObservarDesafioPage() {
                         </div>
 
                         {finished && (
-                            <div className="message success" style={{ marginTop: 24 }}>
+                            <div
+                                className="message success"
+                                style={{ marginTop: 24 }}
+                            >
                                 <h3>¡EL PARTICIPANTE ENCONTRÓ AL IMPOSTOR!</h3>
 
                                 <p>
-                                    La respuesta correcta fue:
-                                    {" "}
+                                    La respuesta correcta fue:{" "}
                                     <strong>
                                         {challenge.wrestlers?.find(
                                             (w) => w.id === revealedWrestlerId
@@ -326,15 +717,12 @@ export default function ObservarDesafioPage() {
                                     </strong>
                                 </p>
 
-                                {/*
-                                  La explicación se obtiene desde el endpoint
-                                  privado del creador. Ver el paso 2.
-                                */}
                                 {challenge.creator_reason && (
                                     <>
                                         <h3 style={{ marginTop: 16 }}>
                                             ¿POR QUÉ ERA EL IMPOSTOR?
                                         </h3>
+
                                         <p>{challenge.creator_reason}</p>
                                     </>
                                 )}
@@ -342,7 +730,10 @@ export default function ObservarDesafioPage() {
                         )}
 
                         {lastAnswer?.is_correct === false && !finished && (
-                            <div className="message error" style={{ marginTop: 24 }}>
+                            <div
+                                className="message error"
+                                style={{ marginTop: 24 }}
+                            >
                                 <h3>¡ESA NO ERA LA RESPUESTA!</h3>
                                 <p>El participante puede seguir intentando.</p>
                             </div>
@@ -406,8 +797,12 @@ export default function ObservarDesafioPage() {
                         )}
 
                         {finished && (
-                            <div className="message success" style={{ marginTop: 24 }}>
+                            <div
+                                className="message success"
+                                style={{ marginTop: 24 }}
+                            >
                                 <h3>¡RESPUESTA CORRECTA!</h3>
+
                                 <p>
                                     El luchador secreto era{" "}
                                     <strong>

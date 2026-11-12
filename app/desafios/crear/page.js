@@ -25,6 +25,7 @@ export default function CrearDesafioPage() {
   const [created, setCreated] = useState(null);
 
   const isImpostor = format === "impostor";
+  const isYesNoQuestions = format === "yes_no_questions";
 
   // Buscar luchadores
   useEffect(() => {
@@ -67,23 +68,25 @@ export default function CrearDesafioPage() {
     };
   }, [search]);
 
-  function changeFormat(value) {
-    setFormat(value);
-    setError("");
-    setSearch("");
-    setResults([]);
-    setSelected(null);
-    setSelectedWrestlers([]);
-    setImpostor(null);
-    setImpostorReason("");
-    setClues([""]);
+function changeFormat(value) {
+  setFormat(value);
+  setError("");
+  setSearch("");
+  setResults([]);
+  setSelected(null);
+  setSelectedWrestlers([]);
+  setImpostor(null);
+  setImpostorReason("");
+  setClues([""]);
 
-    setTitle(
-      value === "impostor"
-        ? "Encuentra al impostor"
-        : "Adivina el luchador"
-    );
+  if (value === "impostor") {
+    setTitle("Encuentra al impostor");
+  } else if (value === "yes_no_questions") {
+    setTitle("Adivina el luchador con preguntas");
+  } else {
+    setTitle("Adivina el luchador");
   }
+}
 
   function selectWrestler(wrestler) {
     if (isImpostor) {
@@ -182,33 +185,37 @@ export default function CrearDesafioPage() {
       instructions =
         "Encuentra cuál de los cuatro luchadores es el impostor.";
     } else {
-      const validClues = clues
-        .map((clue) => clue.trim())
-        .filter(Boolean);
+  if (!selected) {
+    setError("Debes seleccionar un luchador secreto.");
+    return;
+  }
 
-      if (!selected) {
-        setError("Debes seleccionar un luchador secreto.");
-        return;
-      }
+  items = [
+    {
+      wrestler_id: selected.id,
+      position: 1,
+    },
+  ];
 
-      if (validClues.length === 0) {
-        setError("Agrega al menos una pista.");
-        return;
-      }
+  settings = {};
 
-      items = [
-        {
-          wrestler_id: selected.id,
-          position: 1,
-        },
-      ];
+  if (isYesNoQuestions) {
+    instructions =
+      "Descubre quién es el luchador secreto haciendo preguntas que se respondan con Sí o No.";
+  } else {
+    const validClues = clues
+      .map((clue) => clue.trim())
+      .filter(Boolean);
 
-      settings = {};
-
-      instructions =
-        "Descubre quién es el luchador secreto utilizando las pistas.";
+    if (validClues.length === 0) {
+      setError("Agrega al menos una pista.");
+      return;
     }
 
+    instructions =
+      "Descubre quién es el luchador secreto utilizando las pistas.";
+  }
+}
     setLoading(true);
 
     try {
@@ -224,9 +231,9 @@ export default function CrearDesafioPage() {
           instructions,
           settings,
           items,
-          clues: isImpostor
-            ? []
-            : clues.map((clue) => clue.trim()).filter(Boolean),
+          clues: isImpostor || isYesNoQuestions
+  ? []
+  : clues.map((clue) => clue.trim()).filter(Boolean),
         }),
       });
 
@@ -362,12 +369,13 @@ setCreated(data.challenge);
         <label>
           Tipo de desafío
           <select
-            value={format}
-            onChange={(e) => changeFormat(e.target.value)}
-          >
-            <option value="secret_wrestler">Luchador secreto</option>
-            <option value="impostor">El Impostor</option>
-          </select>
+  value={format}
+  onChange={(e) => changeFormat(e.target.value)}
+>
+  <option value="secret_wrestler">Luchador secreto</option>
+  <option value="impostor">El Impostor</option>
+  <option value="yes_no_questions">Preguntas Sí / No</option>
+</select>
         </label>
 
         <label>
@@ -542,6 +550,19 @@ setCreated(data.challenge);
         ) : (
           <>
             <h2>Selecciona el luchador secreto</h2>
+            {isYesNoQuestions && (
+  <>
+    <div className="game-mode-tag">
+      FORMATO: PREGUNTAS SÍ / NO
+    </div>
+
+    <p>
+      Selecciona un luchador que será secreto para tu adversario.
+      Tendrá 90 segundos para descubrirlo haciendo preguntas
+      que tú responderás con Sí o No.
+    </p>
+  </>
+)}
 
             {!selected && (
               <div className="search-box">
@@ -600,6 +621,8 @@ setCreated(data.challenge);
                 </div>
               </div>
             )}
+            {!isYesNoQuestions && (
+  <>
 
             <hr />
 
@@ -648,6 +671,8 @@ setCreated(data.challenge);
                 + Agregar otra pista
               </button>
             )}
+                   </>
+        )}
           </>
         )}
 

@@ -18,13 +18,14 @@ export default function UnirseDesafioPage() {
     setError("");
 
     const normalizedCode = code.trim().toUpperCase();
+    const normalizedName = playerName.trim();
 
     if (normalizedCode.length !== 6) {
       setError("El código debe tener 6 caracteres.");
       return;
     }
 
-    if (!playerName.trim()) {
+    if (!normalizedName) {
       setError("Ingresa tu nombre para continuar.");
       return;
     }
@@ -32,8 +33,10 @@ export default function UnirseDesafioPage() {
     setLoading(true);
 
     try {
+      // Consultar el desafío
       const response = await fetch(
-        `/api/desafios/${encodeURIComponent(normalizedCode)}`
+        `/api/desafios/${encodeURIComponent(normalizedCode)}`,
+        { cache: "no-store" }
       );
 
       const data = await response.json();
@@ -42,14 +45,60 @@ export default function UnirseDesafioPage() {
         throw new Error(data.error || "No se encontró el desafío.");
       }
 
-      if (data.challenge.status !== "waiting") {
+      const challenge = data.challenge;
+
+      if (challenge.status !== "waiting") {
         throw new Error("Este desafío ya no está disponible.");
       }
 
+      // Nuevo formato: registrar al adversario en el servidor.
+      if (challenge.format === "yes_no_questions") {
+        const joinResponse = await fetch(
+          `/api/desafios/${encodeURIComponent(normalizedCode)}/unirse`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              player_name: normalizedName,
+            }),
+          }
+        );
+
+        const joinData = await joinResponse.json();
+
+        if (!joinResponse.ok) {
+          throw new Error(
+            joinData.error || "No fue posible ingresar al desafío."
+          );
+        }
+
+        sessionStorage.setItem(
+          `desafio-${normalizedCode}`,
+          JSON.stringify({
+            playerName: normalizedName,
+            role: "opponent",
+          })
+        );
+
+        sessionStorage.setItem(
+          `desafio-adversario-${normalizedCode}`,
+          joinData.opponent_token
+        );
+
+        router.push(
+          `/desafios/jugar/${encodeURIComponent(normalizedCode)}`
+        );
+
+        return;
+      }
+
+      // Mantener el comportamiento de los formatos anteriores.
       sessionStorage.setItem(
         `desafio-${normalizedCode}`,
         JSON.stringify({
-          playerName: playerName.trim(),
+          playerName: normalizedName,
         })
       );
 

@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { randomBytes, createHash } from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -12,13 +13,11 @@ const ALLOWED_FORMATS = [
   "blind_ranking",
   "top_10",
   "custom",
+  "yes_no_questions",
 ];
 
 function generateCode() {
-  return randomBytes(4)
-    .toString("hex")
-    .toUpperCase()
-    .slice(0, 6);
+  return randomBytes(4).toString("hex").toUpperCase().slice(0, 6);
 }
 
 function generateCreatorToken() {
@@ -82,6 +81,19 @@ export async function POST(request) {
       );
     }
 
+    // Validar el luchador secreto del nuevo desafío
+    if (format === "yes_no_questions") {
+      if (items.length !== 1 || !items[0]?.wrestler_id) {
+        return NextResponse.json(
+          {
+            error:
+              "Debes seleccionar exactamente un luchador para este desafío.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Generar acceso privado del creador
     const creatorToken = generateCreatorToken();
     const creatorTokenHash = hashToken(creatorToken);
@@ -105,6 +117,14 @@ export async function POST(request) {
           settings,
           status: "waiting",
           creator_token_hash: creatorTokenHash,
+
+          // Estado inicial de la sala
+          ...(format === "yes_no_questions"
+            ? {
+                creator_ready: false,
+                opponent_ready: false,
+              }
+            : {}),
         })
         .select("id, code, title, format, status")
         .single();
