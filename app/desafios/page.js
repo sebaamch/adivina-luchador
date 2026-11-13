@@ -6,7 +6,7 @@ export const metadata = {
   description: "Crea desafíos personalizados de lucha libre y reta a tus amigos."
 };
 
-const formats = [
+/*const formats = [
   {
     id: "secret_wrestler",
     title: "Luchador secreto",
@@ -44,7 +44,7 @@ const formats = [
     icon: "✎"
   }
 ];
-
+*/
 export default function DesafiosPage() {
   return (
     <main className="page">
@@ -72,7 +72,7 @@ export default function DesafiosPage() {
         </Link>
       </section>
 
-      <section className="game-mode-grid" aria-label="Formatos disponibles">
+      {/* <section className="game-mode-grid" aria-label="Formatos disponibles">
         {formats.map((format) => (
           <article className="game-mode-card" key={format.id}>
             <div className="game-mode-icon">{format.icon}</div>
@@ -80,7 +80,7 @@ export default function DesafiosPage() {
             <p>{format.description}</p>
           </article>
         ))}
-      </section>
+      </section> */}
 
       <p className="game-select-footer">
         Entretención para fans, por fans

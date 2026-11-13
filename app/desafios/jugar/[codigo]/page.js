@@ -98,16 +98,36 @@ console.log("FORMATO RECIBIDO:", data.challenge?.format);
                 }
 
                 if (
-                    data.challenge.format === "impostor" &&
-                    data.challenge.wrestlers?.length !== 4
-                ) {
-                    throw new Error(
-                        "Este desafío no tiene los cuatro luchadores."
-                    );
-                }
+    data.challenge.format === "impostor" &&
+    data.wrestlers?.length !== 4
+) {
+    const formatoRecibido = String(
+    data.challenge?.format ?? ""
+).trim().toLowerCase();
 
-                setChallenge(data.challenge);
+console.log("DIAGNÓSTICO IMPOSTOR:", {
+    formato: formatoRecibido,
+    esArray: Array.isArray(data.wrestlers),
+    cantidad: data.wrestlers?.length,
+    luchadores: data.wrestlers,
+});
 
+if (
+    formatoRecibido === "impostor" &&
+    (!Array.isArray(data.wrestlers) || data.wrestlers.length !== 4)
+) {
+    console.error("ERROR: cantidad incorrecta de luchadores", data);
+
+    throw new Error(
+        "Este desafío no tiene los cuatro luchadores."
+    );
+}
+}
+                setChallenge({
+    ...data.challenge,
+    items: data.items || [],
+    wrestlers: data.wrestlers || [],
+});
                 if (
                     data.challenge.format === "yes_no_questions" &&
                     data.challenge.status === "finished"
