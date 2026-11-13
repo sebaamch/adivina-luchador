@@ -33,7 +33,7 @@ export async function GET(request, { params }) {
                     ends_at,
                     winner
                 `)
-                .eq("code", codigo)
+                .eq("code", String(codigo).toUpperCase())
                 .single();
 
         if (challengeError || !challenge) {
@@ -112,7 +112,9 @@ export async function GET(request, { params }) {
 
         // Impostor conserva su comportamiento anterior.
         const loadWrestlers =
-            challenge.format === "impostor" || revealSecret;
+        challenge.format === "impostor" ||
+        challenge.format === "what_would_you_choose" ||
+        revealSecret;
 
         if (loadWrestlers && items?.length) {
             const wrestlerIds = items

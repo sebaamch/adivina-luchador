@@ -21,6 +21,7 @@ export default function ObservarDesafioPage() {
     const [error, setError] = useState("");
 
     const cargarPartida = useCallback(async () => {
+
         if (!codigo || !token) return;
 
         try {
@@ -48,6 +49,9 @@ export default function ObservarDesafioPage() {
                     cache: "no-store",
                 }
             );
+            console.log("DATOS DEL DESAFÍO:", challengeData.challenge);
+            console.log("NOMBRE OPONENTE:", challengeData.challenge.opponent_name);
+            console.log("CREADOR LISTO:", challengeData.challenge.creator_ready);
 
             const eventsData = await eventsResponse.json();
 
@@ -669,8 +673,8 @@ export default function ObservarDesafioPage() {
                                             textAlign: "center",
                                             opacity:
                                                 finished &&
-                                                !isRevealed &&
-                                                !isSelected
+                                                    !isRevealed &&
+                                                    !isSelected
                                                     ? 0.65
                                                     : 1,
                                         }}

@@ -26,6 +26,7 @@ export default function CrearDesafioPage() {
 
     const isImpostor = format === "impostor";
     const isYesNoQuestions = format === "yes_no_questions";
+    const isWhatPrefieres = format === "what_would_you_choose";
 
     // Buscar luchadores
     useEffect(() => {
@@ -83,6 +84,9 @@ export default function CrearDesafioPage() {
             setTitle("Encuentra al impostor");
         } else if (value === "yes_no_questions") {
             setTitle("Adivina el luchador con preguntas");
+        }
+        else if (value === "what_would_you_choose") {
+            setTitle("¿Qué prefieres?");
         } else {
             setTitle("Adivina el luchador");
         }
@@ -153,7 +157,19 @@ export default function CrearDesafioPage() {
         let settings = {};
         let instructions = "";
 
-        if (isImpostor) {
+
+
+        if (isWhatPrefieres) {
+            items = [];
+            settings = {
+                current_round: 0,
+                current_wrestler_id: null,
+                finished: false,
+            };
+
+            instructions =
+                "El creador irá proponiendo luchadores y el participante decidirá cuál permanece hasta que el creador detenga el desafío.";
+        } else if (isImpostor) {
             if (selectedWrestlers.length !== 4) {
                 setError("Debes seleccionar exactamente cuatro luchadores.");
                 return;
@@ -231,7 +247,7 @@ export default function CrearDesafioPage() {
                     instructions,
                     settings,
                     items,
-                    clues: isImpostor || isYesNoQuestions
+                    clues: isImpostor || isYesNoQuestions || isWhatPrefieres
                         ? []
                         : clues.map((clue) => clue.trim()).filter(Boolean),
                 }),
@@ -329,12 +345,12 @@ export default function CrearDesafioPage() {
                             </Link>
                         </div>
                         <div>
-                        <Link
-                            href="/desafios"
-                            className="game-mode-cta"
-                        >
-                            VOLVER A DESAFÍOS →
-                        </Link>
+                            <Link
+                                href="/desafios"
+                                className="game-mode-cta"
+                            >
+                                VOLVER A DESAFÍOS →
+                            </Link>
                         </div>
                     </article>
                 </section>
@@ -374,6 +390,8 @@ export default function CrearDesafioPage() {
                     <option value="secret_wrestler">Luchador secreto</option>
                     <option value="impostor">El Impostor</option>
                     <option value="yes_no_questions">Preguntas Sí / No</option>
+                    <option value="what_would_you_choose">¿Qué prefieres?</option>
+
                 </select>
                 <input
                     type="text"
@@ -528,146 +546,169 @@ export default function CrearDesafioPage() {
                                         </div>
                                     </div>
                                 )}
-                                    <textarea 
-                                        className="textarea"
-                                        value={impostorReason}
-                                        onChange={(e) => setImpostorReason(e.target.value)}
-                                        placeholder="Agrega explicación de por qué es el impostor."
-                                        maxLength={500}
-                                        rows={10}
-                                    />
-                               
+                                <textarea
+                                    className="textarea"
+                                    value={impostorReason}
+                                    onChange={(e) => setImpostorReason(e.target.value)}
+                                    placeholder="Agrega explicación de por qué es el impostor."
+                                    maxLength={500}
+                                    rows={10}
+                                />
+
                             </>
                         )}
                     </>
-                ) : (
+                ) : isWhatPrefieres ? (
                     <>
-                        <h2>Selecciona el luchador secreto</h2>
-                        {isYesNoQuestions && (
-                            <>
-                                <div className="game-mode-tag">
-                                    FORMATO: PREGUNTAS SÍ / NO
-                                </div>
+                        <div className="game-mode-tag">
+                            FORMATO: ¿QUÉ PREFIERES?
+                        </div>
 
-                                <p>
-                                    Selecciona un luchador que será secreto para tu adversario.
-                                    Tendrá 90 segundos para descubrirlo haciendo preguntas
-                                    que tú responderás con Sí o No.
-                                </p>
-                            </>
-                        )}
+                        <h2>DESAFÍA A TU OPONENTE</h2>
 
-                        {!selected && (
-                            <div className="search-box">
-                                <div className="input-wrap">
-                                    <input
-                                        type="search"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="Buscar luchador..."
-                                        autoComplete="off"
-                                    />
+                        <p>
+                            Comparte el código con otro jugador. Durante la partida
+                            podrás ir proponiendo luchadores y tu oponente decidirá
+                            cuál permanece. Tú decides cuándo detener el desafío.
+                        </p>
 
-                                    {results.length > 0 && (
-                                        <div className="suggestions">
-                                            {results.map((wrestler) => (
-                                                <button
-                                                    type="button"
-                                                    key={wrestler.id}
-                                                    onClick={() => selectWrestler(wrestler)}
-                                                >
-                                                    <WrestlerImage wrestler={wrestler} />
-                                                    <span>{wrestler.name}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                        <div className="message">
+                            <strong>¿Cómo funciona?</strong>
+                            <p>Seleccionarás dos luchadores para iniciar.</p>
+                            <p>Tu oponente elegirá cuál permanece.</p>
+                            <p>Agregarás nuevos luchadores en cada ronda.</p>
+                            <p>Cuando quieras terminar, presionarás DETENERSE.</p>
+                        </div>
+                    </>
+                ) :
+                    (
+                        <>
+                            <h2>Selecciona el luchador secreto</h2>
+                            {isYesNoQuestions && (
+                                <>
+                                    <div className="game-mode-tag">
+                                        FORMATO: PREGUNTAS SÍ / NO
+                                    </div>
 
-                        {search.trim().length >= 2 && searching && !selected && (
-                            <p>Buscando luchadores...</p>
-                        )}
+                                    <p>
+                                        Selecciona un luchador que será secreto para tu adversario.
+                                        Tendrá 90 segundos para descubrirlo haciendo preguntas
+                                        que tú responderás con Sí o No.
+                                    </p>
+                                </>
+                            )}
 
-                        {selected && (
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 16,
-                                    marginTop: 16,
-                                }}
-                            >
-                                <WrestlerImage wrestler={selected} size={90} />
-
-                                <div>
-                                    <strong>{selected.name}</strong>
-                                    <p>Luchador secreto seleccionado</p>
-                                    <button
-                                        type="button"
-                                        className="secondary"
-                                        onClick={() => setSelected(null)}
-                                    >
-                                        Cambiar luchador
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        {!isYesNoQuestions && (
-                            <>
-
-                                <hr />
-
-                                <h2>Agrega las pistas</h2>
-                                <p>
-                                    Escribe pistas que ayuden al participante a descubrir
-                                    al luchador.
-                                </p>
-
-                                {clues.map((clue, index) => (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            display: "flex",
-                                            gap: 8,
-                                            marginBottom: 10,
-                                            alignItems: "center",
-                                        }}
-                                    >
+                            {!selected && (
+                                <div className="search-box">
+                                    <div className="input-wrap">
                                         <input
-                                            type="text"
-                                            value={clue}
-                                            onChange={(e) => updateClue(index, e.target.value)}
-                                            placeholder={`Pista ${index + 1}`}
-                                            maxLength={300}
+                                            type="search"
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            placeholder="Buscar luchador..."
+                                            autoComplete="off"
                                         />
 
-                                        {clues.length > 1 && (
-                                            <button
-                                                type="button"
-                                                className="error-button"
-                                                onClick={() => removeClue(index)}
-                                            >
-                                                Quitar
-                                            </button>
+                                        {results.length > 0 && (
+                                            <div className="suggestions">
+                                                {results.map((wrestler) => (
+                                                    <button
+                                                        type="button"
+                                                        key={wrestler.id}
+                                                        onClick={() => selectWrestler(wrestler)}
+                                                    >
+                                                        <WrestlerImage wrestler={wrestler} />
+                                                        <span>{wrestler.name}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
-                                ))}
+                                </div>
+                            )}
 
-                                {clues.length < 10 && (
-                                    <button
-                                        className="secondary"
-                                        type="button"
-                                        onClick={addClue}
-                                    >
-                                        + Agregar otra pista
-                                    </button>
-                                )}
-                            </>
-                        )}
-                    </>
-                )}
+                            {search.trim().length >= 2 && searching && !selected && (
+                                <p>Buscando luchadores...</p>
+                            )}
+
+                            {selected && (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 16,
+                                        marginTop: 16,
+                                    }}
+                                >
+                                    <WrestlerImage wrestler={selected} size={90} />
+
+                                    <div>
+                                        <strong>{selected.name}</strong>
+                                        <p>Luchador secreto seleccionado</p>
+                                        <button
+                                            type="button"
+                                            className="secondary"
+                                            onClick={() => setSelected(null)}
+                                        >
+                                            Cambiar luchador
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {!isYesNoQuestions && (
+                                <>
+
+                                    <hr />
+
+                                    <h2>Agrega las pistas</h2>
+                                    <p>
+                                        Escribe pistas que ayuden al participante a descubrir
+                                        al luchador.
+                                    </p>
+
+                                    {clues.map((clue, index) => (
+                                        <div
+                                            key={index}
+                                            style={{
+                                                display: "flex",
+                                                gap: 8,
+                                                marginBottom: 10,
+                                                alignItems: "center",
+                                            }}
+                                        >
+                                            <input
+                                                type="text"
+                                                value={clue}
+                                                onChange={(e) => updateClue(index, e.target.value)}
+                                                placeholder={`Pista ${index + 1}`}
+                                                maxLength={300}
+                                            />
+
+                                            {clues.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    className="error-button"
+                                                    onClick={() => removeClue(index)}
+                                                >
+                                                    Quitar
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    {clues.length < 10 && (
+                                        <button
+                                            className="secondary"
+                                            type="button"
+                                            onClick={addClue}
+                                        >
+                                            + Agregar otra pista
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                        </>
+                    )}
 
                 {error && (
                     <p role="alert" style={{ color: "red" }}>

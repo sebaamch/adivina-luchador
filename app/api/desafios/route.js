@@ -14,6 +14,7 @@ const ALLOWED_FORMATS = [
   "top_10",
   "custom",
   "yes_no_questions",
+  "what_would_you_choose",
 ];
 
 function generateCode() {
@@ -121,9 +122,16 @@ export async function POST(request) {
           // Estado inicial de la sala
           ...(format === "yes_no_questions"
             ? {
-                creator_ready: false,
-                opponent_ready: false,
-              }
+              creator_ready: false,
+              opponent_ready: false,
+            }
+            : {}),
+
+          ...(format === "what_would_you_choose"
+            ? {
+              creator_ready: false,
+              opponent_ready: false,
+            }
             : {}),
         })
         .select("id, code, title, format, status")

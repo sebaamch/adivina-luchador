@@ -38,6 +38,7 @@ export default function JugarDesafioPage() {
 
 const isImpostor = challengeFormat === "impostor";
 const isYesNoQuestions = challengeFormat === "yes_no_questions";
+const isWhatPrefieres = challengeFormat === "what_would_you_choose";
  
     // Cargar sesión y desafío.
    useEffect(() => {
@@ -90,6 +91,7 @@ console.log("FORMATO RECIBIDO:", data.challenge?.format);
                         "secret_wrestler",
                         "impostor",
                         "yes_no_questions",
+                        "what_would_you_choose",
                     ].includes(data.challenge.format)
                 ) {
                     throw new Error(
@@ -876,7 +878,44 @@ if (
                             </div>
                         )}
                     </>
-                ) : isImpostor ? (
+                ) : isWhatPrefieres ? (
+    // =====================================
+    // MODO ¿QUÉ PREFIERES?
+    // =====================================
+    <div className="challenge-game">
+        <h1>¿QUÉ PREFIERES?</h1>
+
+        <p>
+            Elige al luchador que quieres que avance a la siguiente ronda.
+        </p>
+
+        <div className="wrestler-options">
+            {challenge?.wrestlers?.slice(0, 2).map((wrestler) => (
+                <div
+                    key={wrestler.id}
+                    className="wrestler-option"
+                >
+                    <SafeImage
+                        src={wrestler.image_url}
+                        alt={wrestler.name}
+                    />
+
+                    <h2>{wrestler.name}</h2>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            // Aquí conectaremos la selección del luchador
+                        }}
+                    >
+                        ELEGIR
+                    </button>
+                </div>
+            ))}
+        </div>
+    </div>
+
+) : isImpostor ? (
                     /* FORMATO: IMPOSTOR */
                     <>
                         <div className="game-mode-tag">EL IMPOSTOR</div>
