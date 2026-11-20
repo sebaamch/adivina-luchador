@@ -19,6 +19,13 @@ export default function ObservarDesafioPage() {
     const [answerLoading, setAnswerLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    // Estados del modo ¿Qué prefieres?
+    const [wrestlerQuery, setWrestlerQuery] = useState("");
+    const [wrestlerOptions, setWrestlerOptions] = useState([]);
+    const [selectedWrestlers, setSelectedWrestlers] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [roundLoading, setRoundLoading] = useState(false);
+    const [finishLoading, setFinishLoading] = useState(false);
 
     const cargarPartida = useCallback(async () => {
 
@@ -61,7 +68,12 @@ export default function ObservarDesafioPage() {
                 );
             }
 
-            setChallenge(challengeData.challenge);
+            setChallenge({
+                ...challengeData.challenge,
+                items: challengeData.items || [],
+                wrestlers: challengeData.wrestlers || [],
+            });
+
             setEventos(eventsData.eventos || []);
 
             if (challengeData.challenge.format === "yes_no_questions") {
@@ -102,42 +114,57 @@ export default function ObservarDesafioPage() {
     }, [codigo, token]);
 
     // Marcar al creador como listo.
-    async function marcarListo() {
-        if (!token || readyLoading || challenge?.creator_ready) return;
+async function marcarListo() {
+    if (!token || readyLoading || challenge?.creator_ready) return;
 
-        setReadyLoading(true);
-        setError("");
+    setReadyLoading(true);
+    setError("");
 
-        try {
-            const response = await fetch(
-                `/api/desafios/${codigo}/listo`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        role: "creator",
-                    }),
-                }
-            );
+    try {
+        console.log("MARCANDO CREADOR COMO LISTO...");
+        console.log("CÓDIGO:", codigo);
+        console.log("TOKEN DISPONIBLE:", Boolean(token));
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error || "No se pudo marcar como listo."
-                );
+        const response = await fetch(
+            `/api/desafios/${codigo}/listo`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    role: "creator",
+                }),
             }
+        );
 
-            await cargarPartida();
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setReadyLoading(false);
+        const data = await response.json();
+
+        console.log("RESPUESTA ENDPOINT LISTO:", data);
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "No se pudo marcar como listo."
+            );
         }
+
+        if (data.room) {
+            setChallenge(current => ({
+                ...current,
+                ...data.room,
+            }));
+        }
+
+        await cargarPartida();
+
+    } catch (err) {
+        console.error("ERROR MARCANDO CREADOR COMO LISTO:", err);
+        setError(err.message);
+    } finally {
+        setReadyLoading(false);
     }
+}
 
     // Responder una pregunta del adversario.
     async function responderPregunta(questionId, answer) {
@@ -173,6 +200,108 @@ export default function ObservarDesafioPage() {
         }
     }
 
+    async function agregarRonda() {
+        if (roundLoading) return;
+
+        const selectedCount = eventos.filter(
+            event => event.event_type === "selected"
+        ).length;
+
+        const requiredCount = selectedCount === 0 ? 2 : 1;
+
+        if (selectedWrestlers.length !== requiredCount) {
+            setError(
+                selectedCount === 0
+                    ? "Debes seleccionar dos luchadores."
+                    : "Debes seleccionar un nuevo contrincante."
+            );
+            return;
+        }
+
+        setRoundLoading(true);
+        setError("");
+
+        try {
+            const body = selectedCount === 0
+                ? {
+                    wrestler_ids: selectedWrestlers.map(w => w.id),
+                }
+                : {
+                    wrestler_id: selectedWrestlers[0].id,
+                };
+
+            const response = await fetch(
+                `/api/desafios/${codigo}/rondas`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(body),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "No se pudo agregar la ronda."
+                );
+            }
+
+            setSelectedWrestlers([]);
+            setWrestlerQuery("");
+            setWrestlerOptions([]);
+
+            await cargarPartida();
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setRoundLoading(false);
+        }
+    }
+    async function finalizarDesafio() {
+        if (finishLoading) return;
+
+        const confirmar = window.confirm(
+            "¿Estás seguro de finalizar el desafío? Esta acción no se puede deshacer."
+        );
+
+        if (!confirmar) return;
+
+        setFinishLoading(true);
+        setError("");
+
+        try {
+            const response = await fetch(
+                `/api/desafios/${codigo}/finalizar`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "No se pudo finalizar el desafío."
+                );
+            }
+
+            await cargarPartida();
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setFinishLoading(false);
+        }
+    }
+
     // Recuperar la sesión del creador.
     useEffect(() => {
         const savedToken = sessionStorage.getItem(
@@ -198,6 +327,47 @@ export default function ObservarDesafioPage() {
 
         return () => clearInterval(interval);
     }, [token, cargarPartida]);
+
+
+    // Buscar luchadores para agregar a las rondas.
+    useEffect(() => {
+        if (
+            challenge?.format !== "what_would_you_choose" ||
+            !wrestlerQuery.trim()
+        ) {
+            setWrestlerOptions([]);
+            return;
+        }
+
+        let active = true;
+
+        const timeout = setTimeout(async () => {
+            setSearching(true);
+
+            try {
+                const response = await fetch(
+                    `/api/wrestlers?q=${encodeURIComponent(wrestlerQuery.trim())}`
+                );
+
+                const data = await response.json();
+
+                if (active && response.ok) {
+                    setWrestlerOptions(data.wrestlers || []);
+                }
+            } catch (err) {
+                console.error("Error buscando luchadores:", err);
+            } finally {
+                if (active) {
+                    setSearching(false);
+                }
+            }
+        }, 300);
+
+        return () => {
+            active = false;
+            clearTimeout(timeout);
+        };
+    }, [wrestlerQuery, challenge?.format]);
 
     const isYesNoQuestions =
         challenge?.format === "yes_no_questions";
@@ -266,6 +436,45 @@ export default function ObservarDesafioPage() {
 
     const isImpostor = challenge.format === "impostor";
 
+    const isWhatPrefieres =
+        challenge.format === "what_would_you_choose";
+
+    const roundItems = challenge.items || [];
+
+    const roundSelections = eventos.filter(
+        event => event.event_type === "selected"
+    );
+
+    const selectedCount = roundSelections.length;
+
+    const lastRoundSelection = selectedCount > 0
+        ? roundSelections[selectedCount - 1]
+        : null;
+
+    // Determinar si hay una pareja pendiente de elección.
+    const hasPendingChoice =
+        roundItems.length === (selectedCount + 1) * 2;
+
+    // El creador puede agregar otra ronda cuando no hay
+    // una pareja pendiente de elección.
+    const canAddRound =
+        challenge.status === "playing" &&
+        roundItems.length === selectedCount * 2;
+
+    // Recuperar los dos últimos luchadores agregados.
+    const currentPair = roundItems.slice(-2).map(item => ({
+        ...item,
+        wrestler: challenge.wrestlers?.find(
+            wrestler => Number(wrestler.id) === Number(item.wrestler_id)
+        ),
+    }));
+
+    const requiredWrestlers = selectedCount === 0 ? 2 : 1;
+
+    const finalWinner = challenge.wrestlers?.find(
+        wrestler => wrestler.name === challenge.winner
+    );
+
     // Última selección realizada por el participante.
     const selections = eventos.filter(
         (event) => event.event_type === "selected"
@@ -284,19 +493,22 @@ export default function ObservarDesafioPage() {
         ? answers[answers.length - 1]
         : null;
 
-    const hasJoined = eventos.some(
-        (event) => event.event_type === "joined"
-    ) || eventos.length > 0;
+    const hasJoined =
+        Boolean(challenge.opponent_name) ||
+        eventos.some(event => event.event_type === "joined") ||
+        eventos.length > 0;
 
-    const finished = Boolean(lastAnswer?.is_correct);
+    const finished =
+        challenge.status === "finished" ||
+        Boolean(lastAnswer?.is_correct);
 
     // En el formato impostor, una selección incorrecta permite continuar.
     const currentSelection = lastSelection?.wrestler_id ?? null;
 
     // La respuesta correcta solo se revela cuando el participante acierta.
-    const revealedWrestlerId = finished
-        ? lastAnswer.wrestler_id
-        : null;
+   const revealedWrestlerId = finished && lastAnswer
+    ? lastAnswer.wrestler_id
+    : null;
 
     const playerName =
         lastSelection?.player_name ||
@@ -375,7 +587,393 @@ export default function ObservarDesafioPage() {
                     ← VOLVER A DESAFÍOS
                 </button>
 
-                {isYesNoQuestions ? (
+
+                {isWhatPrefieres ? (
+                    <>
+                        <div className="game-mode-tag">
+                            ¿QUÉ PREFIERES?
+                        </div>
+
+                        <h2>TORNEO DE LUCHADORES</h2>
+
+                        <p>
+                            El participante deberá elegir entre dos luchadores.
+                            El seleccionado avanzará para enfrentarse a un nuevo contrincante.
+                        </p>
+
+                        {challenge.status === "waiting" && (
+                            <div
+                                style={{
+                                    marginTop: 24,
+                                    padding: 20,
+                                    borderRadius: 12,
+                                    border: "1px solid var(--border-color, #444)",
+                                    textAlign: "center",
+                                }}
+                            >
+                                <h3>ESPERANDO PARA COMENZAR</h3>
+
+                                <p>
+                                    Adversario: {challenge.opponent_name || "Esperando jugador"}
+                                </p>
+
+                                <p>
+                                    Tu estado: {challenge.creator_ready ? "LISTO" : "NO LISTO"}
+                                </p>
+
+                                <p>
+                                    Estado del adversario: {challenge.opponent_ready ? "LISTO" : "NO LISTO"}
+                                </p>
+
+                                <button
+                                    type="button"
+                                    className="primary"
+                                    onClick={marcarListo}
+                                    disabled={
+                                        readyLoading ||
+                                        challenge.creator_ready ||
+                                        !challenge.opponent_name
+                                    }
+                                    style={{ marginTop: 16 }}
+                                >
+                                    {readyLoading
+                                        ? "PROCESANDO..."
+                                        : challenge.creator_ready
+                                            ? "YA ESTÁS LISTO"
+                                            : "ESTOY LISTO"}
+                                </button>
+
+                                {!challenge.opponent_name && (
+                                    <p style={{ marginTop: 12 }}>
+                                        Esperando que ingrese el adversario.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {challenge.status === "playing" && (
+                            <>
+                                <div
+                                    style={{
+                                        marginTop: 24,
+                                        padding: 20,
+                                        borderRadius: 12,
+                                        background: "rgba(34,197,94,.10)",
+                                        textAlign: "center",
+                                    }}
+                                >
+                                    <h3>DESAFÍO EN CURSO</h3>
+
+                                    <p>
+                                        Rondas completadas: {selectedCount}
+                                    </p>
+
+                                    <p>
+                                        Participante: {challenge.opponent_name}
+                                    </p>
+                                </div>
+
+                                {currentPair.length === 2 && (
+                                    <div style={{ marginTop: 28 }}>
+                                        <h3>
+                                            {hasPendingChoice
+                                                ? `RONDA ${selectedCount + 1}`
+                                                : `ÚLTIMA RONDA COMPLETADA`}
+                                        </h3>
+
+                                        <div
+                                            style={{
+                                                display: "grid",
+                                                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                                                gap: 16,
+                                                marginTop: 16,
+                                            }}
+                                        >
+                                            {currentPair.map((item, index) => {
+                                                const wrestler = item.wrestler;
+
+                                                const isWinner =
+                                                    !hasPendingChoice &&
+                                                    Number(lastRoundSelection?.wrestler_id) ===
+                                                    Number(item.wrestler_id);
+
+                                                const isAdvancing =
+                                                    hasPendingChoice &&
+                                                    selectedCount > 0 &&
+                                                    index === 0;
+
+                                                return (
+                                                    <div
+                                                        key={`${item.position}-${item.wrestler_id}`}
+                                                        style={{
+                                                            padding: 16,
+                                                            borderRadius: 12,
+                                                            border: isWinner || isAdvancing
+                                                                ? "2px solid #16a34a"
+                                                                : "1px solid var(--border-color, #444)",
+                                                            textAlign: "center",
+                                                            background: isWinner || isAdvancing
+                                                                ? "rgba(22,163,74,.10)"
+                                                                : "transparent",
+                                                        }}
+                                                    >
+                                                        {wrestler ? (
+                                                            <SafeImage wrestler={wrestler} />
+                                                        ) : (
+                                                            <p>Imagen no disponible</p>
+                                                        )}
+
+                                                        <strong>
+                                                            {wrestler?.name || "Luchador"}
+                                                        </strong>
+
+                                                        {isWinner && (
+                                                            <p style={{ color: "#16a34a" }}>
+                                                                SELECCIONADO
+                                                            </p>
+                                                        )}
+
+                                                        {isAdvancing && (
+                                                            <p style={{ color: "#16a34a" }}>
+                                                                AVANZA A ESTA RONDA
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {hasPendingChoice && (
+                                    <div
+                                        className="message"
+                                        style={{ marginTop: 20 }}
+                                    >
+                                        <h3>ESPERANDO ELECCIÓN</h3>
+                                        <p>
+                                            El participante debe elegir uno de los dos luchadores.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {canAddRound && (
+                                    <div
+                                        style={{
+                                            marginTop: 28,
+                                            padding: 20,
+                                            borderRadius: 12,
+                                            border: "1px solid var(--border-color, #444)",
+                                        }}
+                                    >
+                                        <h3>
+                                            {selectedCount === 0
+                                                ? "AGREGAR LOS PRIMEROS LUCHADORES"
+                                                : "AGREGAR NUEVO CONTRINCANTE"}
+                                        </h3>
+
+                                        <p>
+                                            {selectedCount === 0
+                                                ? "Selecciona dos luchadores para comenzar el torneo."
+                                                : "Selecciona al siguiente rival del luchador que avanzó."}
+                                        </p>
+
+                                        <input
+                                            type="text"
+                                            value={wrestlerQuery}
+                                            onChange={event => setWrestlerQuery(event.target.value)}
+                                            placeholder="Buscar luchador..."
+                                            disabled={roundLoading}
+                                            style={{
+                                                width: "100%",
+                                                padding: 12,
+                                                marginTop: 12,
+                                                borderRadius: 8,
+                                            }}
+                                        />
+
+                                        {searching && (
+                                            <p>Buscando luchadores...</p>
+                                        )}
+
+                                        {wrestlerOptions.length > 0 && (
+                                            <div
+                                                className="suggestions"
+                                                style={{
+                                                    marginTop: 12,
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: 8,
+                                                }}
+                                            >
+                                                {wrestlerOptions.map(wrestler => {
+                                                    const alreadySelected =
+                                                        selectedWrestlers.some(
+                                                            item => Number(item.id) === Number(wrestler.id)
+                                                        );
+
+                                                    const alreadyUsed =
+                                                        roundItems.some(
+                                                            item => Number(item.wrestler_id) === Number(wrestler.id)
+                                                        );
+
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={wrestler.id}
+                                                            className="secondary"
+                                                            disabled={
+                                                                alreadySelected ||
+                                                                alreadyUsed ||
+                                                                selectedWrestlers.length >= requiredWrestlers
+                                                            }
+                                                            onClick={() => {
+                                                                setSelectedWrestlers(previous => [
+                                                                    ...previous,
+                                                                    wrestler,
+                                                                ]);
+                                                                setWrestlerQuery("");
+                                                                setWrestlerOptions([]);
+                                                            }}
+                                                            style={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: 12,
+                                                                textAlign: "left",
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={
+                                                                    wrestler.image_url ||
+                                                                    wrestler.local_image ||
+                                                                    "/wrestlers/default.svg"
+                                                                }
+                                                                alt={wrestler.name}
+                                                                onError={event => {
+                                                                    event.currentTarget.src =
+                                                                        "/wrestlers/default.svg";
+                                                                }}
+                                                                style={{
+                                                                    width: 48,
+                                                                    height: 48,
+                                                                    objectFit: "contain",
+                                                                }}
+                                                            />
+
+                                                            <span>{wrestler.name}</span>
+
+                                                            {alreadyUsed && (
+                                                                <span>YA PARTICIPÓ</span>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {selectedWrestlers.length > 0 && (
+                                            <div style={{ marginTop: 20 }}>
+                                                <h3>
+                                                    SELECCIONADOS ({selectedWrestlers.length}/{requiredWrestlers})
+                                                </h3>
+
+                                                {selectedWrestlers.map(wrestler => (
+                                                    <div
+                                                        key={wrestler.id}
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "space-between",
+                                                            gap: 12,
+                                                            padding: 10,
+                                                            border: "1px solid var(--border-color, #444)",
+                                                            borderRadius: 8,
+                                                            marginTop: 8,
+                                                        }}
+                                                    >
+                                                        <span>{wrestler.name}</span>
+
+                                                        <button
+                                                            type="button"
+                                                            className="secondary"
+                                                            disabled={roundLoading}
+                                                            onClick={() => {
+                                                                setSelectedWrestlers(previous =>
+                                                                    previous.filter(
+                                                                        item => item.id !== wrestler.id
+                                                                    )
+                                                                );
+                                                            }}
+                                                        >
+                                                            QUITAR
+                                                        </button>
+                                                    </div>
+                                                ))}
+
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            className="primary"
+                                            onClick={agregarRonda}
+                                            disabled={
+                                                roundLoading ||
+                                                selectedWrestlers.length !== requiredWrestlers
+                                            }
+                                            style={{ marginTop: 20, width: "100%" }}
+                                        >
+                                            {roundLoading
+                                                ? "AGREGANDO..."
+                                                : selectedCount === 0
+                                                    ? "COMENZAR PRIMERA RONDA"
+                                                    : "AGREGAR CONTRINCANTE"}
+                                        </button>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={finalizarDesafio}
+                                    disabled={finishLoading}
+                                    style={{
+                                        marginTop: 28,
+                                        width: "100%",
+                                        border: "1px solid #dc2626",
+                                        color: "#dc2626",
+                                    }}
+                                >
+                                    {finishLoading
+                                        ? "FINALIZANDO..."
+                                        : "FINALIZAR DESAFÍO"}
+                                </button>
+                            </>
+                        )}
+
+                        {challenge.status === "finished" && (
+                            <div
+                                className="message success"
+                                style={{ marginTop: 24, textAlign: "center" }}
+                            >
+                                <h3>¡DESAFÍO FINALIZADO!</h3>
+
+                                {finalWinner ? (
+                                    <>
+                                        <p>EL ÚLTIMO LUCHADOR ELEGIDO FUE:</p>
+
+                                        <SafeImage wrestler={finalWinner} />
+
+                                        <h2>{finalWinner.name}</h2>
+                                    </>
+                                ) : (
+                                    <p>El desafío terminó sin un ganador.</p>
+                                )}
+                            </div>
+                        )}
+                    </>
+                ) : isYesNoQuestions ? (
+
                     <>
                         <div className="game-mode-tag">
                             PREGUNTAS SÍ / NO

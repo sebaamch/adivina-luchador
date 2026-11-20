@@ -29,25 +29,42 @@ export default function JugarDesafioPage() {
     const [revealedWrestler, setRevealedWrestler] = useState(null);
     const [remainingSeconds, setRemainingSeconds] = useState(90);
     const [readyLoading, setReadyLoading] = useState(false);
+    // Estados de ¿Qué prefieres?
+    const [choosingWrestlerId, setChoosingWrestlerId] = useState(null);
+    const [chosenWrestlerId, setChosenWrestlerId] = useState(null);
+    const [choiceMessage, setChoiceMessage] = useState("");
 
     const [loading, setLoading] = useState(true);
     const [searching, setSearching] = useState(false);
     const [error, setError] = useState("");
 
-   const challengeFormat = challenge?.format?.trim().toLowerCase() || "";
+    const challengeFormat = challenge?.format?.trim().toLowerCase() || "";
 
-const isImpostor = challengeFormat === "impostor";
-const isYesNoQuestions = challengeFormat === "yes_no_questions";
-const isWhatPrefieres = challengeFormat === "what_would_you_choose";
- 
+    const isImpostor = challengeFormat === "impostor";
+    const isYesNoQuestions = challengeFormat === "yes_no_questions";
+    const isWhatPrefieres = challengeFormat === "what_would_you_choose";
+
+    const currentPairKey = (challenge?.wrestlers || [])
+        .slice(0, 2)
+        .map(wrestler => wrestler.id)
+        .join(":");
+
     // Cargar sesión y desafío.
-   useEffect(() => {
-    if (!codigo) return;
+    // Reiniciar elección cuando cambia la pareja.
+    useEffect(() => {
+        if (!isWhatPrefieres || !currentPairKey) return;
 
-    const savedSession = sessionStorage.getItem(`desafio-${codigo}`);
-    const savedToken = sessionStorage.getItem(
-        `desafio-adversario-${codigo}`
-    );
+        setChosenWrestlerId(null);
+        setChoiceMessage("");
+        setChoosingWrestlerId(null);
+    }, [isWhatPrefieres, currentPairKey]);
+    useEffect(() => {
+        if (!codigo) return;
+
+        const savedSession = sessionStorage.getItem(`desafio-${codigo}`);
+        const savedToken = sessionStorage.getItem(
+            `desafio-adversario-${codigo}`
+        );
 
         if (!savedSession) {
             router.replace("/desafios/unirse");
@@ -69,88 +86,97 @@ const isWhatPrefieres = challengeFormat === "what_would_you_choose";
             return;
         }
 
-        async function loadChallenge() {
-            try {
-                const response = await fetch(`/api/desafios/${codigo}`, {
-                    cache: "no-store",
-                });
+       async function loadChallenge() {
+    try {
+        const response = await fetch(`/api/desafios/${codigo}`, {
+            cache: "no-store",
+        });
 
-                const data = await response.json();
-                console.log("CÓDIGO DEL DESAFÍO:", codigo);
-console.log("RESPUESTA INICIAL DE LA API:", data);
-console.log("FORMATO RECIBIDO:", data.challenge?.format);
+        const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(
-                        data.error || "No fue posible cargar el desafío."
-                    );
-                }
+        console.log("CÓDIGO DEL DESAFÍO:", codigo);
+        console.log("RESPUESTA INICIAL DE LA API:", data);
+        console.log("FORMATO RECIBIDO:", data.challenge?.format);
 
-                if (
-                    ![
-                        "secret_wrestler",
-                        "impostor",
-                        "yes_no_questions",
-                        "what_would_you_choose",
-                    ].includes(data.challenge.format)
-                ) {
-                    throw new Error(
-                        "Este formato todavía no está disponible."
-                    );
-                }
+        if (!response.ok) {
+            throw new Error(
+                data.error || "No fue posible cargar el desafío."
+            );
+        }
 
-                if (
-    data.challenge.format === "impostor" &&
-    data.wrestlers?.length !== 4
-) {
-    const formatoRecibido = String(
-    data.challenge?.format ?? ""
-).trim().toLowerCase();
+        if (
+            ![
+                "secret_wrestler",
+                "impostor",
+                "yes_no_questions",
+                "what_would_you_choose",
+            ].includes(data.challenge.format)
+        ) {
+            throw new Error(
+                "Este formato todavía no está disponible."
+            );
+        }
 
-console.log("DIAGNÓSTICO IMPOSTOR:", {
-    formato: formatoRecibido,
-    esArray: Array.isArray(data.wrestlers),
-    cantidad: data.wrestlers?.length,
-    luchadores: data.wrestlers,
-});
+        if (
+            data.challenge.format === "impostor" &&
+            data.wrestlers?.length !== 4
+        ) {
+            const formatoRecibido = String(
+                data.challenge?.format ?? ""
+            ).trim().toLowerCase();
 
-if (
-    formatoRecibido === "impostor" &&
-    (!Array.isArray(data.wrestlers) || data.wrestlers.length !== 4)
-) {
-    console.error("ERROR: cantidad incorrecta de luchadores", data);
+            console.log("DIAGNÓSTICO IMPOSTOR:", {
+                formato: formatoRecibido,
+                esArray: Array.isArray(data.wrestlers),
+                cantidad: data.wrestlers?.length,
+                luchadores: data.wrestlers,
+            });
 
-    throw new Error(
-        "Este desafío no tiene los cuatro luchadores."
-    );
-}
-}
-                setChallenge({
-    ...data.challenge,
-    items: data.items || [],
-    wrestlers: data.wrestlers || [],
-});
-                if (
-                    data.challenge.format === "yes_no_questions" &&
-                    data.challenge.status === "finished"
-                ) {
-                    setRevealedWrestler(data.wrestlers?.[0] || null);
-                }
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
+            if (
+                formatoRecibido === "impostor" &&
+                (!Array.isArray(data.wrestlers) ||
+                    data.wrestlers.length !== 4)
+            ) {
+                console.error(
+                    "ERROR: cantidad incorrecta de luchadores",
+                    data
+                );
+
+                throw new Error(
+                    "Este desafío no tiene los cuatro luchadores."
+                );
             }
         }
+
+        setChallenge({
+            ...data.challenge,
+            items: data.items || [],
+            wrestlers: data.wrestlers || [],
+        });
+
+        if (
+            data.challenge.format === "yes_no_questions" &&
+            data.challenge.status === "finished"
+        ) {
+            setRevealedWrestler(data.wrestlers?.[0] || null);
+        }
+
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
+}
 
         if (codigo) {
             loadChallenge();
         }
     }, [codigo, router]);
 
+
     // Actualizar preguntas y estado de la partida en tiempo real.
     useEffect(() => {
-        if (!isYesNoQuestions || !opponentToken) return;
+        if ((!isYesNoQuestions && !isWhatPrefieres) || !opponentToken) return;
 
         let active = true;
 
@@ -172,36 +198,47 @@ if (
 
                 if (!active) return;
 
-                setChallenge(challengeData.challenge);
+                setChallenge({
+                    ...challengeData.challenge,
+                    items: challengeData.items || [],
+                    wrestlers: challengeData.wrestlers || [],
+                });
 
-                if (challengeData.challenge.status === "finished") {
+                if (
+                    isYesNoQuestions &&
+                    challengeData.challenge.status === "finished"
+                ) {
                     setRevealedWrestler(
                         challengeData.wrestlers?.[0] || null
                     );
                 }
 
-                const questionsResponse = await fetch(
-                    `/api/desafios/${codigo}/preguntas`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${opponentToken}`,
-                        },
-                        cache: "no-store",
-                    }
-                );
-
-                const questionsData = await questionsResponse.json();
-
-                if (!questionsResponse.ok) {
-                    throw new Error(
-                        questionsData.error ||
-                        "No se pudieron cargar las preguntas."
+                // Las preguntas solo corresponden al formato Sí/No.
+                if (isYesNoQuestions) {
+                    const questionsResponse = await fetch(
+                        `/api/desafios/${codigo}/preguntas`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${opponentToken}`,
+                            },
+                            cache: "no-store",
+                        }
                     );
+
+                    const questionsData = await questionsResponse.json();
+
+                    if (!questionsResponse.ok) {
+                        throw new Error(
+                            questionsData.error ||
+                            "No se pudieron cargar las preguntas."
+                        );
+                    }
+
+                    if (!active) return;
+
+                    setQuestions(questionsData.questions || []);
                 }
 
-                if (!active) return;
-
-                setQuestions(questionsData.questions || []);
             } catch (err) {
                 if (active) {
                     console.error("Error actualizando partida:", err);
@@ -217,19 +254,20 @@ if (
             active = false;
             clearInterval(interval);
         };
-    }, [codigo, isYesNoQuestions, opponentToken]);
+    }, [codigo, isYesNoQuestions, isWhatPrefieres, opponentToken]);
+
 
     // Buscador utilizado por Luchador Secreto.
     useEffect(() => {
-      if (
-    isImpostor ||
-    query.trim().length < 2 ||
-    selected ||
-    result?.correct
-) {
-    setOptions([]);
-    return;
-}
+        if (
+            isImpostor ||
+            query.trim().length < 2 ||
+            selected ||
+            result?.correct
+        ) {
+            setOptions([]);
+            return;
+        }
         const controller = new AbortController();
 
         const timer = setTimeout(async () => {
@@ -385,7 +423,7 @@ if (
                 }
             );
 
-          const data = await response.json();
+            const data = await response.json();
 
 
             if (!response.ok) {
@@ -394,20 +432,73 @@ if (
                 );
             }
 
-       if (data.challenge || data.room) {
-    const updatedData = data.challenge || data.room;
+            if (data.challenge || data.room) {
+                const updatedData = data.challenge || data.room;
 
-    setChallenge((current) => ({
-        ...current,
-        ...updatedData,
-    }));
-}
+                setChallenge((current) => ({
+                    ...current,
+                    ...updatedData,
+                }));
+            }
         } catch (err) {
             setError(err.message);
         } finally {
             setReadyLoading(false);
         }
     }
+
+
+    // Elegir luchador en ¿Qué prefieres?
+    async function elegirLuchador(wrestler) {
+        if (
+            !wrestler ||
+            !opponentToken ||
+            choosingWrestlerId !== null ||
+            chosenWrestlerId !== null
+        ) {
+            return;
+        }
+
+        setChoosingWrestlerId(wrestler.id);
+        setError("");
+        setChoiceMessage("");
+
+        try {
+            const response = await fetch(
+                `/api/desafios/${codigo}/elegir`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${opponentToken}`,
+                    },
+                    body: JSON.stringify({
+                        wrestler_id: wrestler.id,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "No fue posible registrar tu elección."
+                );
+            }
+
+            setChosenWrestlerId(wrestler.id);
+
+            setChoiceMessage(
+                `Elegiste a ${data.wrestler?.name || wrestler.name}. Esperando al siguiente contrincante...`
+            );
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setChoosingWrestlerId(null);
+        }
+    }
+
 
     // Enviar una pregunta Sí/No.
     async function enviarPregunta(event) {
@@ -686,7 +777,7 @@ if (
                                                         }}
                                                     >
                                                         {question.status ===
-                                                        "answered" ? (
+                                                            "answered" ? (
                                                             <span
                                                                 style={{
                                                                     color: question.answer
@@ -763,12 +854,12 @@ if (
                                         (question) =>
                                             question.status === "pending"
                                     ) && (
-                                        <p>
-                                            Debes esperar la respuesta del
-                                            creador antes de enviar otra
-                                            pregunta.
-                                        </p>
-                                    )}
+                                            <p>
+                                                Debes esperar la respuesta del
+                                                creador antes de enviar otra
+                                                pregunta.
+                                            </p>
+                                        )}
                                 </form>
 
                                 <div
@@ -878,44 +969,132 @@ if (
                             </div>
                         )}
                     </>
+
                 ) : isWhatPrefieres ? (
-    // =====================================
-    // MODO ¿QUÉ PREFIERES?
-    // =====================================
-    <div className="challenge-game">
-        <h1>¿QUÉ PREFIERES?</h1>
+                    // =====================================
+                    // MODO ¿QUÉ PREFIERES?
+                    // =====================================
+                    <div className="challenge-game">
+                        <h1>¿QUÉ PREFIERES?</h1>
 
-        <p>
-            Elige al luchador que quieres que avance a la siguiente ronda.
-        </p>
+                        {challenge.status === "waiting" && (
+                            <div className="message">
+                                <h3>ESPERANDO EL INICIO DEL DESAFÍO</h3>
 
-        <div className="wrestler-options">
-            {challenge?.wrestlers?.slice(0, 2).map((wrestler) => (
-                <div
-                    key={wrestler.id}
-                    className="wrestler-option"
-                >
-                    <SafeImage
-                        src={wrestler.image_url}
-                        alt={wrestler.name}
-                    />
+                                <p>
+                                    Cuando ambos jugadores estén listos,
+                                    el creador podrá comenzar a agregar los luchadores.
+                                </p>
 
-                    <h2>{wrestler.name}</h2>
+                                <p>
+                                    Estado del creador:{" "}
+                                    <strong>
+                                        {challenge.creator_ready ? "LISTO" : "ESPERANDO"}
+                                    </strong>
+                                </p>
 
-                    <button
-                        type="button"
-                        onClick={() => {
-                            // Aquí conectaremos la selección del luchador
-                        }}
-                    >
-                        ELEGIR
-                    </button>
-                </div>
-            ))}
-        </div>
-    </div>
+                                <p>
+                                    Tu estado:{" "}
+                                    <strong>
+                                        {challenge.opponent_ready ? "LISTO" : "NO ESTÁS LISTO"}
+                                    </strong>
+                                </p>
 
-) : isImpostor ? (
+                                {!challenge.opponent_ready && (
+                                    <button
+                                        type="button"
+                                        className="primary"
+                                        onClick={marcarListo}
+                                        disabled={readyLoading}
+                                    >
+                                        {readyLoading ? "ESPERA..." : "ESTOY LISTO"}
+                                    </button>
+                                )}
+
+                                {challenge.opponent_ready && (
+                                    <p>
+                                        Ya estás listo. Esperando que el creador
+                                        también lo esté...
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {challenge.status === "playing" && (
+                            <>
+                                <p>
+                                    Elige al luchador que quieres que avance
+                                    a la siguiente ronda.
+                                </p>
+
+
+                                <div className="wrestler-options">
+                                    {challenge?.wrestlers?.slice(0, 2).map((wrestler) => {
+                                        const isChosen = Number(chosenWrestlerId) === Number(wrestler.id);
+                                        const isChoosing = Number(choosingWrestlerId) === Number(wrestler.id);
+
+                                        return (
+                                            <div
+                                                key={wrestler.id}
+                                                className="wrestler-option"
+                                            >
+                                                <SafeImage
+                                                    src={img(wrestler)}
+                                                    fallback="/wrestlers/default.svg"
+                                                    alt={wrestler.name}
+                                                />
+
+                                                <h2>{wrestler.name}</h2>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => elegirLuchador(wrestler)}
+                                                    disabled={
+                                                        chosenWrestlerId !== null ||
+                                                        choosingWrestlerId !== null
+                                                    }
+                                                >
+                                                    {isChoosing
+                                                        ? "REGISTRANDO..."
+                                                        : isChosen
+                                                            ? "ELEGIDO"
+                                                            : chosenWrestlerId !== null
+                                                                ? "ESPERANDO..."
+                                                                : "ELEGIR"}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {choiceMessage && (
+                                    <div className="message success" role="status">
+                                        {choiceMessage}
+                                    </div>
+                                )}
+
+                                {challenge?.wrestlers?.length < 2 && (
+                                    <div className="message">
+                                        Esperando que el creador agregue los próximos luchadores.
+                                    </div>
+                                )}
+
+                            </>
+                        )}
+
+                        {challenge.status === "finished" && (
+                            <div className="message success">
+                                <h2>DESAFÍO FINALIZADO</h2>
+
+                                <p>
+                                    Ganador:{" "}
+                                    <strong>{challenge.winner || "Sin ganador"}</strong>
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                ) : isImpostor ? (
+
                     /* FORMATO: IMPOSTOR */
                     <>
                         <div className="game-mode-tag">EL IMPOSTOR</div>
@@ -963,8 +1142,8 @@ if (
                                             border: isRevealed
                                                 ? "2px solid #16a34a"
                                                 : isSelected
-                                                ? "2px solid #e6a23c"
-                                                : "1px solid var(--border-color, #444)",
+                                                    ? "2px solid #e6a23c"
+                                                    : "1px solid var(--border-color, #444)",
                                             background: isRevealed
                                                 ? "rgba(22, 163, 74, 0.12)"
                                                 : "transparent",
@@ -974,8 +1153,8 @@ if (
                                                 : "pointer",
                                             opacity:
                                                 result &&
-                                                !isRevealed &&
-                                                !isSelected
+                                                    !isRevealed &&
+                                                    !isSelected
                                                     ? 0.65
                                                     : 1,
                                         }}

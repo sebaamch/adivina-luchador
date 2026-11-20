@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function hashToken(token) {
-  return createHash("sha256").update(token).digest("hex");
+    return createHash("sha256").update(token).digest("hex");
 }
 
 // INGRESAR COMO ADVERSARIO
@@ -98,6 +98,10 @@ export async function GET(request, { params }) {
                 `)
                 .eq("challenge_id", challenge.id)
                 .order("position", { ascending: true });
+        const visibleItems =
+            challenge.format === "what_would_you_choose"
+                ? items.slice(-2)
+                : items;
 
         if (itemsError) {
             throw itemsError;
@@ -112,12 +116,12 @@ export async function GET(request, { params }) {
 
         // Impostor conserva su comportamiento anterior.
         const loadWrestlers =
-        challenge.format === "impostor" ||
-        challenge.format === "what_would_you_choose" ||
-        revealSecret;
+            challenge.format === "impostor" ||
+            challenge.format === "what_would_you_choose" ||
+            revealSecret;
 
         if (loadWrestlers && items?.length) {
-            const wrestlerIds = items
+            const wrestlerIds = visibleItems
                 .map(item => item.wrestler_id)
                 .filter(Boolean);
 
