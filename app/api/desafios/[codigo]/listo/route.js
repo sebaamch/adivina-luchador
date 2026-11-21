@@ -71,7 +71,8 @@ export async function POST(request, { params }) {
         if (
             ![
                 "yes_no_questions",
-                "what_would_you_choose"
+                "what_would_you_choose",
+                "blind_top_5"
             ].includes(challenge.format)
         ) {
             return NextResponse.json(
@@ -153,7 +154,7 @@ export async function POST(request, { params }) {
                     startedAt.getTime() + 90 * 1000
                 ).toISOString();
             } else {
-                // ¿Qué prefieres? no tiene límite de tiempo.
+                // ¿Qué prefieres? y Top cinco a ciegas no tienen límite de tiempo.
                 updateData.ends_at = null;
             }
 

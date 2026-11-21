@@ -26,6 +26,9 @@ export default function ObservarDesafioPage() {
     const [searching, setSearching] = useState(false);
     const [roundLoading, setRoundLoading] = useState(false);
     const [finishLoading, setFinishLoading] = useState(false);
+    // Estados del modo Blind Top 5
+const [blindTop5Progress, setBlindTop5Progress] = useState(null);
+const [revealingWrestlerId, setRevealingWrestlerId] = useState(null);
 
     const cargarPartida = useCallback(async () => {
 
@@ -35,7 +38,12 @@ export default function ObservarDesafioPage() {
             // Obtener los datos públicos del desafío.
             const challengeResponse = await fetch(
                 `/api/desafios/${codigo}`,
-                { cache: "no-store" }
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    cache: "no-store",
+                }
             );
 
             const challengeData = await challengeResponse.json();
@@ -75,6 +83,27 @@ export default function ObservarDesafioPage() {
             });
 
             setEventos(eventsData.eventos || []);
+            if (challengeData.challenge.format === "blind_top_5") {
+    const progressResponse = await fetch(
+        `/api/desafios/${codigo}/blind-top-5/progress`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+        }
+    );
+
+    const progressData = await progressResponse.json();
+
+    if (!progressResponse.ok) {
+        throw new Error(
+            progressData.error || "No se pudo consultar el progreso de Blind Top 5."
+        );
+    }
+
+    setBlindTop5Progress(progressData.progress || null);
+}
 
             if (challengeData.challenge.format === "yes_no_questions") {
                 const questionsResponse = await fetch(
@@ -114,57 +143,57 @@ export default function ObservarDesafioPage() {
     }, [codigo, token]);
 
     // Marcar al creador como listo.
-async function marcarListo() {
-    if (!token || readyLoading || challenge?.creator_ready) return;
+    async function marcarListo() {
+        if (!token || readyLoading || challenge?.creator_ready) return;
 
-    setReadyLoading(true);
-    setError("");
+        setReadyLoading(true);
+        setError("");
 
-    try {
-        console.log("MARCANDO CREADOR COMO LISTO...");
-        console.log("CÓDIGO:", codigo);
-        console.log("TOKEN DISPONIBLE:", Boolean(token));
+        try {
+            console.log("MARCANDO CREADOR COMO LISTO...");
+            console.log("CÓDIGO:", codigo);
+            console.log("TOKEN DISPONIBLE:", Boolean(token));
 
-        const response = await fetch(
-            `/api/desafios/${codigo}/listo`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    role: "creator",
-                }),
-            }
-        );
-
-        const data = await response.json();
-
-        console.log("RESPUESTA ENDPOINT LISTO:", data);
-
-        if (!response.ok) {
-            throw new Error(
-                data.error || "No se pudo marcar como listo."
+            const response = await fetch(
+                `/api/desafios/${codigo}/listo`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        role: "creator",
+                    }),
+                }
             );
+
+            const data = await response.json();
+
+            console.log("RESPUESTA ENDPOINT LISTO:", data);
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "No se pudo marcar como listo."
+                );
+            }
+
+            if (data.room) {
+                setChallenge(current => ({
+                    ...current,
+                    ...data.room,
+                }));
+            }
+
+            await cargarPartida();
+
+        } catch (err) {
+            console.error("ERROR MARCANDO CREADOR COMO LISTO:", err);
+            setError(err.message);
+        } finally {
+            setReadyLoading(false);
         }
-
-        if (data.room) {
-            setChallenge(current => ({
-                ...current,
-                ...data.room,
-            }));
-        }
-
-        await cargarPartida();
-
-    } catch (err) {
-        console.error("ERROR MARCANDO CREADOR COMO LISTO:", err);
-        setError(err.message);
-    } finally {
-        setReadyLoading(false);
     }
-}
 
     // Responder una pregunta del adversario.
     async function responderPregunta(questionId, answer) {
@@ -262,6 +291,43 @@ async function marcarListo() {
             setRoundLoading(false);
         }
     }
+    async function revelarLuchador(wrestlerId) {
+    if (!token || revealingWrestlerId !== null) return;
+
+    setRevealingWrestlerId(wrestlerId);
+    setError("");
+
+    try {
+        const response = await fetch(
+            `/api/desafios/${codigo}/blind-top-5/reveal`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    wrestler_id: wrestlerId,
+                }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "No se pudo revelar el luchador."
+            );
+        }
+
+        await cargarPartida();
+
+    } catch (err) {
+        setError(err.message || "Error al revelar el luchador.");
+    } finally {
+        setRevealingWrestlerId(null);
+    }
+}
     async function finalizarDesafio() {
         if (finishLoading) return;
 
@@ -435,6 +501,24 @@ async function marcarListo() {
     if (!challenge) return null;
 
     const isImpostor = challenge.format === "impostor";
+    const isBlindTop5 = challenge.format === "blind_top_5";
+
+const blindTop5Items = (challenge.items || [])
+    .slice()
+    .sort((a, b) => Number(a.position) - Number(b.position));
+
+const blindTop5RevealedItems =
+    blindTop5Progress?.revealed_items || [];
+
+const blindTop5AssignedCount =
+    Number(blindTop5Progress?.assigned_count || 0);
+
+const blindTop5RevealedCount =
+    Number(blindTop5Progress?.revealed_count || 0);
+
+const blindTop5Completed =
+    challenge.status === "finished" ||
+    Boolean(blindTop5Progress?.completed);
 
     const isWhatPrefieres =
         challenge.format === "what_would_you_choose";
@@ -506,9 +590,9 @@ async function marcarListo() {
     const currentSelection = lastSelection?.wrestler_id ?? null;
 
     // La respuesta correcta solo se revela cuando el participante acierta.
-   const revealedWrestlerId = finished && lastAnswer
-    ? lastAnswer.wrestler_id
-    : null;
+    const revealedWrestlerId = finished && lastAnswer
+        ? lastAnswer.wrestler_id
+        : null;
 
     const playerName =
         lastSelection?.player_name ||
@@ -1211,6 +1295,177 @@ async function marcarListo() {
                                         <h2>{revealedWrestler.name}</h2>
                                     </div>
                                 )}
+                            </div>
+                        )}
+                    </>
+
+                                    ) : isBlindTop5 ? (
+                    <>
+                        <div className="game-mode-tag">
+                            BLIND TOP 5
+                        </div>
+
+                        <h2>LOS CINCO LUCHADORES</h2>
+
+                        <p>
+                            Revela los luchadores en el orden que quieras.
+                            El adversario deberá asignar cada uno a una posición
+                            disponible del 1 al 5.
+                        </p>
+
+                        <div
+                            style={{
+                                marginTop: 24,
+                                padding: 20,
+                                borderRadius: 12,
+                                background: "rgba(34,197,94,.10)",
+                                textAlign: "center",
+                            }}
+                        >
+                            <h3>
+                                {challenge.status === "waiting"
+                                    ? "ESPERANDO AL ADVERSARIO"
+                                    : blindTop5Completed
+                                        ? "¡TOP 5 COMPLETADO!"
+                                        : "DESAFÍO EN CURSO"}
+                            </h3>
+
+                            <p>
+                                Adversario: {challenge.opponent_name || "Esperando jugador"}
+                            </p>
+
+                            <p>
+                                Luchadores revelados: {blindTop5RevealedCount}/5
+                            </p>
+
+                            <p>
+                                Posiciones asignadas: {blindTop5AssignedCount}/5
+                            </p>
+                        </div>
+
+                        {challenge.status === "waiting" && (
+                            <div
+                                className="message"
+                                style={{ marginTop: 20 }}
+                            >
+                                <p>
+                                    Cuando el adversario ingrese con el código,
+                                    la partida comenzará automáticamente.
+                                </p>
+                            </div>
+                        )}
+
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                gap: 16,
+                                marginTop: 28,
+                            }}
+                        >
+                            {blindTop5Items.map((item) => {
+                                const wrestler = challenge.wrestlers?.find(
+                                    w => Number(w.id) === Number(item.wrestler_id)
+                                );
+
+                                const revealedItem =
+                                    blindTop5RevealedItems.find(
+                                        revealed =>
+                                            Number(revealed.wrestler_id) ===
+                                            Number(item.wrestler_id)
+                                    );
+
+                                const isRevealed = Boolean(revealedItem);
+
+                                const isAssigned =
+                                    revealedItem?.assigned_position != null;
+
+                                const isRevealing =
+                                    Number(revealingWrestlerId) ===
+                                    Number(item.wrestler_id);
+
+                                return (
+                                    <div
+                                        key={item.id || item.wrestler_id}
+                                        style={{
+                                            padding: 16,
+                                            borderRadius: 12,
+                                            border: isAssigned
+                                                ? "2px solid #16a34a"
+                                                : isRevealed
+                                                    ? "2px solid #e6a23c"
+                                                    : "1px solid var(--border-color, #444)",
+                                            background: isAssigned
+                                                ? "rgba(22,163,74,.10)"
+                                                : "transparent",
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        {wrestler ? (
+                                            <SafeImage wrestler={wrestler} />
+                                        ) : (
+                                            <p>Imagen no disponible</p>
+                                        )}
+
+                                        <h3>
+                                            {wrestler?.name || "Luchador"}
+                                        </h3>
+
+                                        {isAssigned ? (
+                                            <p style={{ color: "#16a34a" }}>
+                                                ASIGNADO A LA POSICIÓN{" "}
+                                                {revealedItem.assigned_position}
+                                            </p>
+                                        ) : isRevealed ? (
+                                            <p style={{ color: "#e6a23c" }}>
+                                                REVELADO · ESPERANDO ASIGNACIÓN
+                                            </p>
+                                        ) : (
+                                            <p>
+                                                TODAVÍA OCULTO
+                                            </p>
+                                        )}
+
+                                        {!isRevealed && (
+                                            <button
+                                                type="button"
+                                                className="primary"
+                                                disabled={
+                                                    challenge.status !== "playing" ||
+                                                    revealingWrestlerId !== null ||
+                                                    blindTop5Completed
+                                                }
+                                                onClick={() =>
+                                                    revelarLuchador(item.wrestler_id)
+                                                }
+                                                style={{
+                                                    width: "100%",
+                                                    marginTop: 12,
+                                                }}
+                                            >
+                                                {isRevealing
+                                                    ? "REVELANDO..."
+                                                    : "REVELAR"}
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {blindTop5Completed && (
+                            <div
+                                className="message success"
+                                style={{
+                                    marginTop: 28,
+                                    textAlign: "center",
+                                }}
+                            >
+                                <h3>¡LAS CINCO POSICIONES FUERON ASIGNADAS!</h3>
+
+                                <p>
+                                    El adversario completó su Top 5.
+                                </p>
                             </div>
                         )}
                     </>

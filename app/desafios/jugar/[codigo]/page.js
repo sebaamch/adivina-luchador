@@ -25,6 +25,7 @@ export default function JugarDesafioPage() {
     const [questionText, setQuestionText] = useState("");
     const [sendingQuestion, setSendingQuestion] = useState(false);
     const [guessing, setGuessing] = useState(false);
+    const [visibleClueIndex, setVisibleClueIndex] = useState(0);
     const [guessResult, setGuessResult] = useState(null);
     const [revealedWrestler, setRevealedWrestler] = useState(null);
     const [remainingSeconds, setRemainingSeconds] = useState(90);
@@ -38,11 +39,16 @@ export default function JugarDesafioPage() {
     const [searching, setSearching] = useState(false);
     const [error, setError] = useState("");
 
+    // Estados del modo Blind Top 5
+    const [blindTop5Progress, setBlindTop5Progress] = useState(null);
+    const [assigningWrestlerId, setAssigningWrestlerId] = useState(null);
+
     const challengeFormat = challenge?.format?.trim().toLowerCase() || "";
 
     const isImpostor = challengeFormat === "impostor";
     const isYesNoQuestions = challengeFormat === "yes_no_questions";
     const isWhatPrefieres = challengeFormat === "what_would_you_choose";
+    const isBlindTop5 = challengeFormat === "blind_top_5";
 
     const currentPairKey = (challenge?.wrestlers || [])
         .slice(0, 2)
@@ -86,87 +92,113 @@ export default function JugarDesafioPage() {
             return;
         }
 
-       async function loadChallenge() {
-    try {
-        const response = await fetch(`/api/desafios/${codigo}`, {
-            cache: "no-store",
-        });
+        async function loadChallenge() {
+            try {
+                const response = await fetch(`/api/desafios/${codigo}`, {
+                    headers: {
+                        Authorization: `Bearer ${savedToken || ""}`,
+                    },
+                    cache: "no-store",
+                });;
 
-        const data = await response.json();
+                const data = await response.json();
 
-        console.log("CÓDIGO DEL DESAFÍO:", codigo);
-        console.log("RESPUESTA INICIAL DE LA API:", data);
-        console.log("FORMATO RECIBIDO:", data.challenge?.format);
+                console.log("CÓDIGO DEL DESAFÍO:", codigo);
+                console.log("RESPUESTA INICIAL DE LA API:", data);
+                console.log("FORMATO RECIBIDO:", data.challenge?.format);
 
-        if (!response.ok) {
-            throw new Error(
-                data.error || "No fue posible cargar el desafío."
-            );
-        }
+                if (!response.ok) {
+                    throw new Error(
+                        data.error || "No fue posible cargar el desafío."
+                    );
+                }
 
-        if (
-            ![
-                "secret_wrestler",
-                "impostor",
-                "yes_no_questions",
-                "what_would_you_choose",
-            ].includes(data.challenge.format)
-        ) {
-            throw new Error(
-                "Este formato todavía no está disponible."
-            );
-        }
+                if (
+                    ![
+                        "secret_wrestler",
+                        "impostor",
+                        "yes_no_questions",
+                        "what_would_you_choose",
+                        "blind_top_5",
+                    ].includes(data.challenge.format)
+                ) {
+                    throw new Error(
+                        "Este formato todavía no está disponible."
+                    );
+                }
 
-        if (
-            data.challenge.format === "impostor" &&
-            data.wrestlers?.length !== 4
-        ) {
-            const formatoRecibido = String(
-                data.challenge?.format ?? ""
-            ).trim().toLowerCase();
+                if (
+                    data.challenge.format === "impostor" &&
+                    data.wrestlers?.length !== 4
+                ) {
+                    const formatoRecibido = String(
+                        data.challenge?.format ?? ""
+                    ).trim().toLowerCase();
 
-            console.log("DIAGNÓSTICO IMPOSTOR:", {
-                formato: formatoRecibido,
-                esArray: Array.isArray(data.wrestlers),
-                cantidad: data.wrestlers?.length,
-                luchadores: data.wrestlers,
-            });
+                    console.log("DIAGNÓSTICO IMPOSTOR:", {
+                        formato: formatoRecibido,
+                        esArray: Array.isArray(data.wrestlers),
+                        cantidad: data.wrestlers?.length,
+                        luchadores: data.wrestlers,
+                    });
 
-            if (
-                formatoRecibido === "impostor" &&
-                (!Array.isArray(data.wrestlers) ||
-                    data.wrestlers.length !== 4)
-            ) {
-                console.error(
-                    "ERROR: cantidad incorrecta de luchadores",
-                    data
-                );
+                    if (
+                        formatoRecibido === "impostor" &&
+                        (!Array.isArray(data.wrestlers) ||
+                            data.wrestlers.length !== 4)
+                    ) {
+                        console.error(
+                            "ERROR: cantidad incorrecta de luchadores",
+                            data
+                        );
 
-                throw new Error(
-                    "Este desafío no tiene los cuatro luchadores."
-                );
+                        throw new Error(
+                            "Este desafío no tiene los cuatro luchadores."
+                        );
+                    }
+                }
+
+                setChallenge({
+                    ...data.challenge,
+                    items: data.items || [],
+                    wrestlers: data.wrestlers || [],
+                });
+
+                if (data.challenge.format === "blind_top_5") {
+                    const progressResponse = await fetch(
+                        `/api/desafios/${codigo}/blind-top-5/progress`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${savedToken || ""}`,
+                            },
+                            cache: "no-store",
+                        }
+                    );
+
+                    const progressData = await progressResponse.json();
+
+                    if (!progressResponse.ok) {
+                        throw new Error(
+                            progressData.error || "No se pudo consultar el progreso."
+                        );
+                    }
+
+                    setBlindTop5Progress(progressData.progress || null);
+                }
+
+                if (
+                    data.challenge.format === "yes_no_questions" &&
+                    data.challenge.status === "finished"
+                ) {
+                    setRevealedWrestler(data.wrestlers?.[0] || null);
+                }
+
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
             }
         }
-
-        setChallenge({
-            ...data.challenge,
-            items: data.items || [],
-            wrestlers: data.wrestlers || [],
-        });
-
-        if (
-            data.challenge.format === "yes_no_questions" &&
-            data.challenge.status === "finished"
-        ) {
-            setRevealedWrestler(data.wrestlers?.[0] || null);
-        }
-
-    } catch (err) {
-        setError(err.message);
-    } finally {
-        setLoading(false);
-    }
-}
 
         if (codigo) {
             loadChallenge();
@@ -176,7 +208,12 @@ export default function JugarDesafioPage() {
 
     // Actualizar preguntas y estado de la partida en tiempo real.
     useEffect(() => {
-        if ((!isYesNoQuestions && !isWhatPrefieres) || !opponentToken) return;
+        if (
+            (!isYesNoQuestions && !isWhatPrefieres && !isBlindTop5) ||
+            !opponentToken
+        ) {
+            return;
+        }
 
         let active = true;
 
@@ -184,7 +221,12 @@ export default function JugarDesafioPage() {
             try {
                 const challengeResponse = await fetch(
                     `/api/desafios/${codigo}`,
-                    { cache: "no-store" }
+                    {
+                        headers: {
+                            Authorization: `Bearer ${opponentToken}`,
+                        },
+                        cache: "no-store",
+                    }
                 );
 
                 const challengeData = await challengeResponse.json();
@@ -203,6 +245,30 @@ export default function JugarDesafioPage() {
                     items: challengeData.items || [],
                     wrestlers: challengeData.wrestlers || [],
                 });
+
+                if (isBlindTop5) {
+                    const progressResponse = await fetch(
+                        `/api/desafios/${codigo}/blind-top-5/progress`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${opponentToken}`,
+                            },
+                            cache: "no-store",
+                        }
+                    );
+
+                    const progressData = await progressResponse.json();
+
+                    if (!progressResponse.ok) {
+                        throw new Error(
+                            progressData.error || "No se pudo actualizar el progreso."
+                        );
+                    }
+
+                    if (!active) return;
+
+                    setBlindTop5Progress(progressData.progress || null);
+                }
 
                 if (
                     isYesNoQuestions &&
@@ -254,7 +320,13 @@ export default function JugarDesafioPage() {
             active = false;
             clearInterval(interval);
         };
-    }, [codigo, isYesNoQuestions, isWhatPrefieres, opponentToken]);
+    }, [
+        codigo,
+        isYesNoQuestions,
+        isWhatPrefieres,
+        isBlindTop5,
+        opponentToken,
+    ]);
 
 
     // Buscador utilizado por Luchador Secreto.
@@ -498,6 +570,71 @@ export default function JugarDesafioPage() {
             setChoosingWrestlerId(null);
         }
     }
+    // Asignar un luchador revelado a una posición del Top 5.
+
+    async function asignarPosicion(wrestlerId, position) {
+        if (
+            !position ||
+            !opponentToken ||
+            assigningWrestlerId !== null
+        ) {
+            return;
+        }
+
+        setAssigningWrestlerId(wrestlerId);
+        setError("");
+
+        try {
+            const response = await fetch(
+                `/api/desafios/${codigo}/blind-top-5/assign`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${opponentToken}`,
+                    },
+                    body: JSON.stringify({
+                        wrestler_id: Number(wrestlerId),
+                        position: Number(position),
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "No se pudo asignar el luchador."
+                );
+            }
+
+            const progressResponse = await fetch(
+                `/api/desafios/${codigo}/blind-top-5/progress`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${opponentToken}`,
+                    },
+                    cache: "no-store",
+                }
+            );
+
+            const progressData = await progressResponse.json();
+
+            if (!progressResponse.ok) {
+                throw new Error(
+                    progressData.error || "No se pudo actualizar el progreso."
+                );
+            }
+
+            setBlindTop5Progress(progressData.progress || null);
+
+        } catch (err) {
+            setError(err.message || "Error al asignar el luchador.");
+        } finally {
+            setAssigningWrestlerId(null);
+        }
+    }
+
 
 
     // Enviar una pregunta Sí/No.
@@ -587,6 +724,13 @@ export default function JugarDesafioPage() {
 
             if (data.correct) {
                 setRevealedWrestler(data.wrestler || null);
+            } else {
+                setVisibleClueIndex((current) =>
+                    Math.min(
+                        current + 1,
+                        (challenge.clues?.length || 1) - 1
+                    )
+                );
             }
         } catch (err) {
             setError(err.message);
@@ -969,6 +1113,296 @@ export default function JugarDesafioPage() {
                             </div>
                         )}
                     </>
+                ) : isBlindTop5 ? (
+                    <>
+                        <div className="game-mode-tag">
+                            BLIND TOP 5
+                        </div>
+
+                        <h2>ARMA TU TOP 5</h2>
+
+                        <p>
+                            El creador irá revelando cinco luchadores.
+                            Cuando aparezca uno, asígnalo a una posición
+                            disponible de tu ranking.
+                        </p>
+
+                        {(() => {
+                            const revealedItems =
+                                blindTop5Progress?.revealed_items || [];
+
+                            const assignedCount =
+                                Number(blindTop5Progress?.assigned_count || 0);
+
+                            const completed =
+                                challenge.status === "finished" ||
+                                Boolean(blindTop5Progress?.completed);
+
+                            const occupiedPositions = revealedItems
+                                .filter(item => item.assigned_position != null)
+                                .map(item => Number(item.assigned_position));
+
+                            const availablePositions = [
+                                1, 2, 3, 4, 5
+                            ].filter(
+                                position =>
+                                    !occupiedPositions.includes(position)
+                            );
+
+                            return (
+                                <>
+                                    <div
+                                        className="message"
+                                        style={{
+                                            marginTop: 24,
+                                            textAlign: "center",
+                                        }}
+                                    >
+                                        <h3>
+                                            {completed
+                                                ? "¡TOP 5 COMPLETADO!"
+                                                : challenge.status === "waiting"
+                                                    ? "ESPERANDO AL CREADOR"
+                                                    : "PARTIDA EN CURSO"}
+                                        </h3>
+
+                                        <p>
+                                            Posiciones asignadas: {assignedCount}/5
+                                        </p>
+
+                                        <p>
+                                            Luchadores revelados: {revealedItems.length}/5
+                                        </p>
+                                    </div>
+
+                                    <div style={{ marginTop: 28 }}>
+                                        <h3>TU TOP 5</h3>
+
+                                        <div
+                                            style={{
+                                                display: "grid",
+                                                gridTemplateColumns:
+                                                    "repeat(5, minmax(0, 1fr))",
+                                                gap: 8,
+                                                marginTop: 16,
+                                            }}
+                                        >
+                                            {[1, 2, 3, 4, 5].map(position => {
+                                                const assigned = revealedItems.find(
+                                                    item =>
+                                                        Number(item.assigned_position) ===
+                                                        position
+                                                );
+
+                                                return (
+                                                    <div
+                                                        key={position}
+                                                        style={{
+                                                            minHeight: 85,
+                                                            padding: 8,
+                                                            borderRadius: 10,
+                                                            border: assigned
+                                                                ? "2px solid #16a34a"
+                                                                : "1px dashed var(--border-color, #777)",
+                                                            textAlign: "center",
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            justifyContent: "center",
+                                                            gap: 5,
+                                                        }}
+                                                    >
+                                                        <strong
+                                                            style={{
+                                                                fontSize: 22,
+                                                            }}
+                                                        >
+                                                            {position}
+                                                        </strong>
+
+                                                        <small
+                                                            style={{
+                                                                fontSize: 11,
+                                                                overflowWrap: "anywhere",
+                                                            }}
+                                                        >
+                                                            {assigned?.name || "LIBRE"}
+                                                        </small>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+
+                                    <div style={{ marginTop: 32 }}>
+                                        <h3>LUCHADOR ACTUAL</h3>
+
+                                        {(() => {
+                                            const currentItem = revealedItems.find(
+                                                item => item.assigned_position == null
+                                            );
+
+                                            if (!currentItem && !completed) {
+                                                return (
+                                                    <div className="message">
+                                                        <p>
+                                                            Esperando que el creador seleccione
+                                                            y revele el siguiente luchador...
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+
+                                            if (!currentItem) return null;
+
+                                            const wrestler =
+                                                challenge.wrestlers?.find(
+                                                    w =>
+                                                        Number(w.id) === Number(currentItem.wrestler_id)
+                                                ) || currentItem;
+
+                                            return (
+                                                <div
+                                                    style={{
+                                                        marginTop: 16,
+                                                        padding: 18,
+                                                        borderRadius: 14,
+                                                        border: "1px solid var(--border-color, #444)",
+                                                        textAlign: "center",
+                                                    }}
+                                                >
+                                                    <SafeImage
+                                                        src={img(wrestler)}
+                                                        fallback="/wrestlers/default.svg"
+                                                        alt={wrestler.name}
+                                                    />
+
+                                                    <h2 style={{ marginTop: 12 }}>
+                                                        {wrestler.name}
+                                                    </h2>
+
+                                                    <p>
+                                                        Selecciona el cuadrado donde quieres ubicarlo.
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    <div style={{ marginTop: 28 }}>
+                                        <h3>SELECCIONA UNA POSICIÓN</h3>
+
+                                        <div
+                                            style={{
+                                                display: "grid",
+                                                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                                                gap: 8,
+                                                marginTop: 16,
+                                            }}
+                                        >
+                                            {[1, 2, 3, 4, 5].map(position => {
+                                                const assigned = revealedItems.find(
+                                                    item =>
+                                                        Number(item.assigned_position) === position
+                                                );
+
+                                                const currentItem = revealedItems.find(
+                                                    item => item.assigned_position == null
+                                                );
+
+                                                const isAssigning =
+                                                    currentItem &&
+                                                    Number(assigningWrestlerId) ===
+                                                    Number(currentItem.wrestler_id);
+
+                                                return (
+                                                    <button
+                                                        key={position}
+                                                        type="button"
+                                                        disabled={
+                                                            Boolean(assigned) ||
+                                                            !currentItem ||
+                                                            assigningWrestlerId !== null ||
+                                                            completed
+                                                        }
+                                                        onClick={() =>
+                                                            asignarPosicion(
+                                                                currentItem.wrestler_id,
+                                                                position
+                                                            )
+                                                        }
+                                                        style={{
+                                                            minWidth: 0,
+                                                            minHeight: 105,
+                                                            padding: 6,
+                                                            borderRadius: 12,
+                                                            border: assigned
+                                                                ? "2px solid #16a34a"
+                                                                : "2px dashed var(--border-color, #777)",
+                                                            background: assigned
+                                                                ? "rgba(22, 163, 74, 0.12)"
+                                                                : "transparent",
+                                                            color: "inherit",
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: 6,
+                                                            cursor: assigned || !currentItem
+                                                                ? "default"
+                                                                : "pointer",
+                                                            opacity: assigned ? 1 : 0.9,
+                                                        }}
+                                                    >
+                                                        <strong style={{ fontSize: 26 }}>
+                                                            {position}
+                                                        </strong>
+
+                                                        {assigned ? (
+                                                            <small
+                                                                style={{
+                                                                    fontSize: 10,
+                                                                    overflowWrap: "anywhere",
+                                                                    color: "#16a34a",
+                                                                    fontWeight: 700,
+                                                                }}
+                                                            >
+                                                                {assigned.name || "ASIGNADO"}
+                                                            </small>
+                                                        ) : (
+                                                            <small style={{ fontSize: 10 }}>
+                                                                {isAssigning
+                                                                    ? "ASIGNANDO..."
+                                                                    : "LIBRE"}
+                                                            </small>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+
+                                    {completed && (
+                                        <div
+                                            className="message success"
+                                            style={{
+                                                marginTop: 24,
+                                                textAlign: "center",
+                                            }}
+                                        >
+                                            <h3>¡COMPLETASTE TU TOP 5!</h3>
+
+                                            <p>
+                                                Todas las posiciones fueron asignadas.
+                                                El desafío ha finalizado.
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </>
 
                 ) : isWhatPrefieres ? (
                     // =====================================
@@ -1159,12 +1593,24 @@ export default function JugarDesafioPage() {
                                                     : 1,
                                         }}
                                     >
-                                        <SafeImage
-                                            src={wrestler.local_image}
-                                            fallback="/wrestlers/default.svg"
-                                            alt={wrestler.name}
-                                            className="wrestler-image"
-                                        />
+                                        <div
+                                            style={{
+                                                width: "100%",
+                                                height: 260,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                overflow: "hidden",
+                                                borderRadius: 10,
+                                            }}
+                                        >
+                                            <SafeImage
+                                                src={wrestler.local_image}
+                                                fallback="/wrestlers/default.svg"
+                                                alt={wrestler.name}
+                                                className="wrestler-image"
+                                            />
+                                        </div>
 
                                         <strong>{wrestler.name}</strong>
 
@@ -1250,9 +1696,11 @@ export default function JugarDesafioPage() {
 
                             {challenge.clues?.length > 0 ? (
                                 <ol>
-                                    {challenge.clues.map((clue, index) => (
-                                        <li key={index}>{clue}</li>
-                                    ))}
+                                    {challenge.clues
+                                        .slice(0, visibleClueIndex + 1)
+                                        .map((clue, index) => (
+                                            <li key={index}>{clue}</li>
+                                        ))}
                                 </ol>
                             ) : (
                                 <p>
@@ -1454,12 +1902,17 @@ function SafeImage({
     useEffect(() => {
         setUrl(src || fallback);
     }, [src, fallback]);
-
     return (
         <img
             className={className}
             src={url}
             alt={alt}
+            style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                objectPosition: "center",
+            }}
             onError={() => {
                 if (url !== fallback) {
                     setUrl(fallback);

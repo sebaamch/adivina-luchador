@@ -12,116 +12,106 @@ export default function UnirseDesafioPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    async function joinChallenge(event) {
-        event.preventDefault();
-        setError("");
+   
+async function joinChallenge(event) {
+    event.preventDefault();
+    setError("");
 
-        const normalizedCode = code.trim().toUpperCase();
-        const normalizedName = playerName.trim();
+    const normalizedCode = code.trim().toUpperCase();
+    const normalizedName = playerName.trim();
 
-        if (normalizedCode.length !== 6) {
-            setError("El código debe tener 6 caracteres.");
-            return;
-        }
-
-        if (!normalizedName) {
-            setError("Ingresa tu nombre para continuar.");
-            return;
-        }
-
-        setLoading(true);
-
-        try {
-            // Consultar el desafío.
-            const response = await fetch(
-                `/api/desafios/${encodeURIComponent(normalizedCode)}`,
-                { cache: "no-store" }
-            );
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error || "No se encontró el desafío."
-                );
-            }
-
-            if (data.challenge.status !== "waiting") {
-                throw new Error(
-                    "Este desafío ya no está disponible."
-                );
-            }
-
-            const format = data.challenge.format;
-
-            // Los formatos que necesitan token de adversario.
-            const requiresOpponentToken = [
-                "yes_no_questions",
-                "what_would_you_choose",
-            ].includes(format);
-
-            let opponentToken = null;
-
-            // Registrar al adversario en la base de datos.
-            if (requiresOpponentToken) {
-                const joinResponse = await fetch(
-                    `/api/desafios/${encodeURIComponent(normalizedCode)}/ingresar`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            player_name: normalizedName,
-                        }),
-                    }
-                );
-
-                const joinData = await joinResponse.json();
-
-                if (!joinResponse.ok) {
-                    throw new Error(
-                        joinData.error ||
-                        "No fue posible ingresar al desafío."
-                    );
-                }
-
-                if (!joinData.opponent_token) {
-                    throw new Error(
-                        "No se recibió el token del adversario."
-                    );
-                }
-
-                opponentToken = joinData.opponent_token;
-            }
-
-            // Guardar sesión del participante.
-            sessionStorage.setItem(
-                `desafio-${normalizedCode}`,
-                JSON.stringify({
-                    playerName: normalizedName,
-                })
-            );
-
-            // Guardar token para autenticar al adversario.
-            if (opponentToken) {
-                sessionStorage.setItem(
-                    `desafio-adversario-${normalizedCode}`,
-                    opponentToken
-                );
-            }
-
-            // Ir a la pantalla de juego.
-            router.push(
-                `/desafios/jugar/${encodeURIComponent(normalizedCode)}`
-            );
-
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+    if (normalizedCode.length !== 6) {
+        setError("El código debe tener 6 caracteres.");
+        return;
     }
+
+    if (!normalizedName) {
+        setError("Ingresa tu nombre para continuar.");
+        return;
+    }
+
+    setLoading(true);
+
+    try {
+        // Consultar inicialmente el desafío.
+        // Esta consulta permite identificar el formato.
+        const response = await fetch(
+            `/api/desafios/${encodeURIComponent(normalizedCode)}`,
+            { cache: "no-store" }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "No se encontró el desafío.");
+        }
+
+        if (data.challenge.status !== "waiting") {
+            throw new Error("Este desafío ya no está disponible.");
+        }
+
+        const format = data.challenge.format;
+
+        const requiresOpponentToken = [
+            "yes_no_questions",
+            "what_would_you_choose",
+            "blind_top_5",
+        ].includes(format);
+
+        let opponentToken = null;
+
+        if (requiresOpponentToken) {
+            const joinResponse = await fetch(
+                `/api/desafios/${encodeURIComponent(normalizedCode)}/ingresar`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        player_name: normalizedName,
+                    }),
+                }
+            );
+
+            const joinData = await joinResponse.json();
+
+            if (!joinResponse.ok) {
+                throw new Error(
+                    joinData.error || "No fue posible ingresar al desafío."
+                );
+            }
+
+            if (!joinData.opponent_token) {
+                throw new Error("No se recibió el token del adversario.");
+            }
+
+            opponentToken = joinData.opponent_token;
+
+            sessionStorage.setItem(
+                `desafio-adversario-${normalizedCode}`,
+                opponentToken
+            );
+        }
+
+        sessionStorage.setItem(
+            `desafio-${normalizedCode}`,
+            JSON.stringify({
+                playerName: normalizedName,
+            })
+        );
+
+        router.push(
+            `/desafios/jugar/${encodeURIComponent(normalizedCode)}`
+        );
+
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
+}
+
 
     return (
         <main className="page">
